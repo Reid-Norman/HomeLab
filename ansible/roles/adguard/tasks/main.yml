@@ -1,0 +1,38 @@
+- name: Wait for AdGuard Home API to be ready
+  ansible.builtin.uri:
+    url: "http://localhost:8053/control/status"
+    method: GET
+    user: "{{ adguard_username }}"
+    password: "{{ adguard_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: adguard_status
+  retries: 10
+  delay: 5
+  until: adguard_status.status == 200
+
+- name: Get existing DNS rewrites
+  ansible.builtin.uri:
+    url: "http://localhost:8053/control/rewrite/list"
+    method: GET
+    user: "{{ adguard_username }}"
+    password: "{{ adguard_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: existing_rewrites
+
+- name: Add DNS rewrites
+  ansible.builtin.uri:
+    url: "http://localhost:8053/control/rewrite/add"
+    method: POST
+    user: "{{ adguard_username }}"
+    password: "{{ adguard_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      domain: "{{ item.domain }}"
+      answer: "{{ item.answer }}"
+    status_code: 200
+  loop: "{{ adguard_dns_rewrites }}"
+  when: >-
+    existing_rewrites.json | selectattr('domain', 'equalto', item.domain) | list | length == 0

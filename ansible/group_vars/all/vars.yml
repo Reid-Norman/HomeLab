@@ -1,0 +1,14 @@
+# Non-secret variables used by playbooks
+docker_compose_root: "{{ playbook_dir }}/.."
+media_stack_path: "{{ docker_compose_root }}/docker-media-stack"
+management_stack_path: "{{ docker_compose_root }}/docker-management-stack"
+networking_stack_path: "{{ docker_compose_root }}/docker-networking-stack"
+automation_stack_path: "{{ docker_compose_root }}/docker-automation-stack"
+
+# Networking
+mac_mini_lan_ip: "REPLACE_WITH_MAC_MINI_LAN_IP"
+
+# AdGuard DNS rewrites (wildcard covers all *.hightechlowlife.ca subdomains)
+adguard_dns_rewrites:
+  - domain: "*.hightechlowlife.ca"
+    answer: "{{ mac_mini_lan_ip }}"

@@ -1,0 +1,41 @@
+name: docker-networking-stack
+services:
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    volumes:
+      - nginx-data:/data
+      - nginx-letsencrypt:/etc/letsencrypt
+    networks:
+      - jellyfinnet
+
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    volumes:
+      - adguard-data:/opt/adguardhome/work
+      - adguard-conf:/opt/adguardhome/conf
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3053:3000"
+      - "8053:80"
+      - "853:853/tcp"
+    networks:
+      - jellyfinnet
+
+volumes:
+  nginx-data:
+  nginx-letsencrypt:
+  adguard-data:
+  adguard-conf:
+
+networks:
+  jellyfinnet:
+    external: true

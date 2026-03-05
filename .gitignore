@@ -1,0 +1,28 @@
+# Environment files (contain secrets)
+**/.env
+!**/.env.example
+
+# Ansible Vault (encrypted secrets)
+ansible/group_vars/all/vault.yml
+.vault_pass
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backups
+*.backup
+
+# Docker
+**/node_modules
+**/.cache
+
+# Claude Code
+.claude/

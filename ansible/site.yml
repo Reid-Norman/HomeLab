@@ -1,0 +1,14 @@
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - group_vars/all/vault.yml
+  roles:
+    - role: env_files
+    - role: qbittorrent
+    - role: prowlarr
+    - role: sonarr
+    - role: radarr
+    - role: recyclarr
+    - role: adguard
+    - role: uptime_kuma

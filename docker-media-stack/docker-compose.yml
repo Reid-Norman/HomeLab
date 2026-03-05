@@ -1,0 +1,319 @@
+# Command to run with VPN and Recommendarr profiles:
+# COMPOSE_PROFILES=vpn,recommendarr docker compose up -d
+
+
+#version: "3.9"
+name: docker-media-stack
+services:
+
+  # =================================== UNIVERSAL SERVICES ===================================
+
+  # To use/enable VPN, Run this compose file with --profile=vpn. Its highly recommended to use VPN.
+  vpn:
+    ## Read https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers for details on configuring VPN for your service provider.
+    profiles: ["vpn"]
+    container_name: vpn
+    image: qmcgaw/gluetun:latest
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - DNS_SERVERS=${DNS_SERVERS}
+
+      ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
+      ## When VPN_SERVICE_PROVIDER is custom. Comment the below line
+      #- SERVER_COUNTRIES=${SERVER_COUNTRIES}
+
+      ## Enable below if VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=openvpn # or wireguard. 
+
+      ## If VPN_TYPE is openvpn
+      #- OPENVPN_CUSTOM_CONFIG=/gluetun/custom.conf
+    networks:
+      - ${MY_NETWORK}
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    # Uncomment/enable below ports if VPN is used/enabled
+    ports:
+    #   # qbittorrent ports
+      - 5080:5080
+      - 6881:6881
+      - 6881:6881/udp
+    #   # prowlarr ports
+      - 9696:9696
+      - 8191:8191 # flaresolverr port
+    restart: "unless-stopped"
+
+  cloudflared:
+    profiles: ["vpn", "no-vpn"]
+    container_name: cloudflared
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - ${MY_NETWORK}
+    restart: unless-stopped
+
+  ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
+  ## Change password after install from UI --> Tools --> Options --> WebUI ##
+  qbittorrent:
+    profiles: ["vpn", "no-vpn"]
+    container_name: qbittorrent
+    image: lscr.io/linuxserver/qbittorrent:latest
+
+    # Uncomment below if vpn is enabled
+    depends_on:               # Uncomment this line if vpn is enabled
+      vpn:                   # Uncomment this line if vpn is enabled
+        condition: service_healthy # Uncomment this line if vpn is enabled
+
+    # Uncomment below line if vpn is enabled
+    network_mode: service:vpn
+
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+      - WEBUI_PORT=5080
+    volumes:
+      - qbittorrent-config:/config
+      - torrent-downloads:/downloads
+    restart: "unless-stopped"
+
+  prowlarr:
+    profiles: ["vpn", "no-vpn"]
+    container_name: prowlarr
+    image: linuxserver/prowlarr:latest
+
+    # Uncomment below if vpn is enabled
+    depends_on:               # Uncomment this line if vpn is enabled
+      vpn:                   # Uncomment this line if vpn is enabled
+        condition: service_healthy # Uncomment this line if vpn is enabled
+    network_mode: service:vpn # Uncomment this line if vpn is enabled
+
+    #networks:               # Comment this line if vpn is enabled
+    #  - ${MY_NETWORK}           # Comment this line if vpn is enabled
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    volumes:
+      - prowlarr-config:/config
+
+    # Comment below ports if VPN is enabled.
+    #ports:
+    #  - 9696:9696
+    restart: unless-stopped
+
+  flaresolverr:
+      profiles: ["vpn", "no-vpn"]
+      container_name: flaresolverr
+      image: ghcr.io/flaresolverr/flaresolverr:latest
+      depends_on:
+        vpn:
+          condition: service_healthy
+      network_mode: service:vpn
+      environment:
+        - LOG_LEVEL=info
+        - LOG_HTML=false
+        - CAPTCHA_SOLVER=none
+        - TZ=${TZ}
+      restart: unless-stopped
+
+
+  # =================================== MOVIE/TV SERVICES ===================================
+  radarr:
+    profiles: ["vpn", "no-vpn"]
+    container_name: radarr
+    image: lscr.io/linuxserver/radarr:latest
+    networks:
+    #  - ${MY_NETWORK}   # Comment this line if VPN is enabled
+    ## Uncomment below lines if VPN is enabled
+      jellyfinnet:
+          ipv4_address: ${RADARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `${MY_NETWORK}` e.g. 172.20.0.2
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    ports:
+      - 7878:7878
+    volumes:
+      - radarr-config:/config
+      - torrent-downloads:/downloads
+    restart: "unless-stopped"
+    #labels:
+    #  - traefik.enable=true
+    #  - traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)
+    #  - traefik.http.services.radarr.loadbalancer.server.port=7878
+
+  sonarr:
+    profiles: ["vpn", "no-vpn"]
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    networks:
+    #  - ${MY_NETWORK}   # Comment this line if VPN is enabled
+    ## Uncomment below lines if VPN is enabled
+      jellyfinnet:
+        ipv4_address: ${SONARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `${MY_NETWORK}` e.g. 172.20.0.2
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    volumes:
+      - sonarr-config:/config
+      - torrent-downloads:/downloads
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+
+  jellyseerr:
+    profiles: ["vpn", "no-vpn"]
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    networks:
+      - ${MY_NETWORK}
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    volumes:
+      - jellyseerr-config:/app/config
+    ports:
+      - 5055:5055
+    restart: unless-stopped
+
+  jellyfin:
+    profiles: ["vpn", "no-vpn"]
+    image: linuxserver/jellyfin:latest
+    container_name: jellyfin
+    networks:
+      - ${MY_NETWORK}
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    volumes:
+      - jellyfin-config:/config
+      - torrent-downloads:/data
+  # devices:
+   #  - /dev/videoN:/dev/videoN # Mount GPU device 
+    ports:
+      - 8096:8096
+      - 7359:7359/udp
+      - 8920:8920
+    restart: unless-stopped
+
+  recommendarr:
+    profiles: ["recommendarr"]
+    container_name: recommendarr
+    image: tannermiddleton/recommendarr:v1.4.4
+    networks:
+      - ${MY_NETWORK}
+    environment:
+      - NODE_ENV=production
+      - DOCKER_ENV=true
+      - PORT=3000
+      - PUBLIC_URL=${RECOMMENDARR_PUBLIC_URL} # Change this public URL if you are accessing recommendarr on a domain
+    volumes:
+      - recommendarr-data:/app/server/data
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+
+
+  # =================================== AUDIOBOOK SERVICES ===================================
+
+  lazylibrarian:
+    profiles: ["vpn", "no-vpn"]
+    image: lscr.io/linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    networks:
+      jellyfinnet:
+        ipv4_address: 172.20.0.12  # Pick unused IP in your network range
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+      - DOCKER_MODS=linuxserver/mods:universal-calibre  # Optional: adds Calibre tools
+    volumes:
+      - lazylibrarian-config:/config
+      - torrent-downloads:/downloads
+      - torrent-downloads:/books  # LazyLibrarian can access all book folders
+    ports:
+      - 5299:5299
+    restart: unless-stopped
+
+  audiobookshelf:
+    profiles: ["vpn", "no-vpn"]
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    networks:
+      - ${MY_NETWORK}
+    environment:
+      - ${PUID}
+      - ${PGID}
+      - ${TZ}
+    volumes:
+      - audiobookshelf-config:/config
+      - audiobookshelf-metadata:/metadata
+      - torrent-downloads:/media
+    ports:
+      - 13378:80
+    restart: unless-stopped
+
+
+ # =================================== MISC SERVICES ===================================
+
+  # Doc: https://github.com/navilg/cleanmyarr
+  # cleanmyarr:
+  #   profiles: ["vpn", "no-vpn"]
+  #   depends_on:
+  #     - radarr
+  #     - sonarr
+  #   image: linuxshots/cleanmyarr:0.8.1
+  #   container_name: cleanmyarr
+  #   networks:
+  #     - ${MY_NETWORK}
+  #   volumes:
+  #     - cleanmyarr-config:/config
+    # restart: unless-stopped
+    # environment:
+    # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
+    # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
+    # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
+    # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
+    # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
+    # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
+    # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
+    # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
+    # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
+    # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
+    # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
+    # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
+    # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
+    # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
+    # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
+    # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
+
+volumes:  # Define named volumes for persistent data storage
+  # Universal services
+  torrent-downloads:
+  qbittorrent-config:
+  prowlarr-config:
+  # cleanmyarr-config:
+
+  # Movie/TV services
+  radarr-config:
+  sonarr-config:
+  jellyfin-config:
+  jellyseerr-config:
+  recommendarr-data:
+
+  # Audiobook services
+  audiobookshelf-config:
+  audiobookshelf-metadata:
+  lazylibrarian-config:
+
+networks:
+  jellyfinnet:
+    external: true

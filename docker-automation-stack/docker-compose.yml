@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  semaphore:
+    image: semaphoreci/semaphore:latest
+    container_name: semaphore
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - semaphore-data:/var/lib/semaphore
+
+volumes:
+  semaphore-data:

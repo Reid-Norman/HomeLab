@@ -1,0 +1,7 @@
+- name: Configure Uptime Kuma
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Uptime Kuma placeholder
+      debug:
+        msg: "Uptime Kuma configuration steps would run here"

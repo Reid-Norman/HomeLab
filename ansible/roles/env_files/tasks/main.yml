@@ -1,0 +1,23 @@
+- name: Generate .env for docker-media-stack
+  ansible.builtin.template:
+    src: "{{ media_stack_path }}/.env.j2"
+    dest: "{{ media_stack_path }}/.env"
+    mode: "0600"
+
+- name: Generate .env for docker-management-stack
+  ansible.builtin.template:
+    src: "{{ management_stack_path }}/.env.j2"
+    dest: "{{ management_stack_path }}/.env"
+    mode: "0600"
+
+- name: Generate .env for docker-networking-stack
+  ansible.builtin.template:
+    src: "{{ networking_stack_path }}/.env.j2"
+    dest: "{{ networking_stack_path }}/.env"
+    mode: "0600"
+
+- name: Generate .env for docker-automation-stack
+  ansible.builtin.template:
+    src: "{{ automation_stack_path }}/.env.j2"
+    dest: "{{ automation_stack_path }}/.env"
+    mode: "0600"

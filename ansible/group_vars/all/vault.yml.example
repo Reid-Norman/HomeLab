@@ -1,0 +1,30 @@
+# Ansible Vault secrets placeholder
+# Copy to vault.yml and encrypt: ansible-vault encrypt vault.yml
+# Edit with: make vault-edit
+
+# Service API keys
+radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
+sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
+prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
+
+# qBittorrent
+qbittorrent_username: "REPLACE_QBT_USER"
+qbittorrent_password: "REPLACE_QBT_PASS"
+
+# AdGuard Home
+adguard_username: "REPLACE_ADGUARD_USERNAME"
+adguard_password: "REPLACE_ADGUARD_PASSWORD"
+
+# VPN (for .env.j2 template)
+vault_vpn_service_provider: "pia"
+vault_openvpn_user: "REPLACE_VPN_USER"
+vault_openvpn_password: "REPLACE_VPN_PASSWORD"
+
+# Cloudflare
+vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
+
+# Email
+vault_le_email: "REPLACE_LE_EMAIL"
+
+# Semaphore
+vault_semaphore_secret_key: "REPLACE_SEMAPHORE_SECRET"
