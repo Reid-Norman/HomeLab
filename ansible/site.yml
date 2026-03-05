@@ -11,4 +11,5 @@
     - role: radarr
     - role: recyclarr
     - role: adguard
+    - role: nginx
     - role: uptime_kuma

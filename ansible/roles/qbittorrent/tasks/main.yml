@@ -1,7 +1,3 @@
-- name: Configure qBittorrent via Web API
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Show qBittorrent placeholder
-      debug:
-        msg: "qBittorrent user from vault: {{ qbittorrent_username }}"
+- name: Show qBittorrent placeholder
+  debug:
+    msg: "qBittorrent user from vault: {{ qbittorrent_username }}"

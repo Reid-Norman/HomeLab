@@ -1,14 +1,18 @@
-version: '3.8'
+name: docker-management-stack
 services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - portainer-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "9000:9000"
+    networks:
+      - jellyfinnet
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -23,20 +27,32 @@ services:
     image: louislam/uptime-kuma:1
     container_name: uptime-kuma
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - uptime-kuma-data:/app/data
     ports:
       - "3001:3001"
+    networks:
+      - jellyfinnet
 
   dozzle:
     image: amir20/dozzle:latest
     container_name: dozzle
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "9999:9999"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jellyfinnet
 
 volumes:
   portainer-data:
   uptime-kuma-data:
+
+networks:
+  jellyfinnet:
+    external: true

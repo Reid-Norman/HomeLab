@@ -1,15 +1,21 @@
-version: '3.8'
+name: docker-automation-stack
 services:
   semaphore:
-    image: semaphoreci/semaphore:latest
+    image: semaphoreui/semaphore:latest
     container_name: semaphore
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "3010:3000"
     volumes:
       - semaphore-data:/var/lib/semaphore
+    networks:
+      - jellyfinnet
 
 volumes:
   semaphore-data:
+
+networks:
+  jellyfinnet:
+    external: true

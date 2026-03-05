@@ -6,9 +6,9 @@ networking_stack_path: "{{ docker_compose_root }}/docker-networking-stack"
 automation_stack_path: "{{ docker_compose_root }}/docker-automation-stack"
 
 # Networking
-mac_mini_lan_ip: "REPLACE_WITH_MAC_MINI_LAN_IP"
+mac_mini_lan_ip: "{{ vault_server_ip }}"
 
-# AdGuard DNS rewrites (wildcard covers all *.hightechlowlife.ca subdomains)
+# AdGuard DNS rewrites (wildcard covers all subdomains)
 adguard_dns_rewrites:
-  - domain: "*.hightechlowlife.ca"
+  - domain: "*.{{ vault_domain }}"
     answer: "{{ mac_mini_lan_ip }}"

@@ -1,15 +1,11 @@
-- name: Configure Sonarr via API
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Ensure Sonarr is reachable
-      uri:
-        url: "http://localhost:8989/api/system/status"
-        method: GET
-        status_code: 200
-      register: sonarr_status
-      ignore_errors: true
+- name: Ensure Sonarr is reachable
+  uri:
+    url: "http://localhost:8989/api/system/status"
+    method: GET
+    status_code: 200
+  register: sonarr_status
+  ignore_errors: true
 
-    - name: Configure Sonarr - placeholder
-      debug:
-        msg: "Sonarr API key would be used from vault: {{ sonarr_api_key }}"
+- name: Configure Sonarr - placeholder
+  debug:
+    msg: "Sonarr API key would be used from vault: {{ sonarr_api_key }}"

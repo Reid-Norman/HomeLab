@@ -1,7 +1,3 @@
-- name: Configure Recyclarr
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Recyclarr placeholder
-      debug:
-        msg: "Recyclarr configuration would be applied here"
+- name: Recyclarr placeholder
+  debug:
+    msg: "Recyclarr configuration would be applied here"

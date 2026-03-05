@@ -1,15 +1,11 @@
-- name: Configure Prowlarr via API
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Ensure Prowlarr is reachable
-      uri:
-        url: "http://localhost:9696/api/v1/system/status"
-        method: GET
-        status_code: 200
-      register: prowlarr_status
-      ignore_errors: true
+- name: Ensure Prowlarr is reachable
+  uri:
+    url: "http://localhost:9696/api/v1/system/status"
+    method: GET
+    status_code: 200
+  register: prowlarr_status
+  ignore_errors: true
 
-    - name: Configure Prowlarr - placeholder
-      debug:
-        msg: "Prowlarr API key would be used from vault: {{ prowlarr_api_key }}"
+- name: Configure Prowlarr - placeholder
+  debug:
+    msg: "Prowlarr API key would be used from vault: {{ prowlarr_api_key }}"

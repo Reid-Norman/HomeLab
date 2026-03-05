@@ -28,3 +28,7 @@ vault_le_email: "REPLACE_LE_EMAIL"
 
 # Semaphore
 vault_semaphore_secret_key: "REPLACE_SEMAPHORE_SECRET"
+
+# Deployment-specific (makes repo portable)
+vault_domain: "hightechlowlife.ca"
+vault_server_ip: "192.168.68.82"
