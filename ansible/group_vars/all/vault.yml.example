@@ -22,6 +22,11 @@ vault_openvpn_password: "REPLACE_VPN_PASSWORD"
 
 # Cloudflare
 vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
+vault_cf_dns_api_token: "REPLACE_CF_DNS_API_TOKEN"
+vault_cf_api_email: "REPLACE_CF_API_EMAIL"
+
+# Traefik
+vault_traefik_dashboard_password: "REPLACE_WITH_HTPASSWD_OUTPUT"  # htpasswd -nbB admin yourpassword
 
 # Email
 vault_le_email: "REPLACE_LE_EMAIL"

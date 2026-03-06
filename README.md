@@ -8,10 +8,10 @@ Self-hosted media and infrastructure server running on a Mac Mini with Docker Co
 |-------|----------|
 | **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, LazyLibrarian, Audiobookshelf |
 | **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle |
-| **docker-networking-stack** | Nginx Proxy Manager, AdGuard Home |
+| **docker-networking-stack** | Traefik, AdGuard Home |
 | **docker-automation-stack** | Semaphore (Ansible UI) |
 
-All services are accessible via `*.hightechlowlife.ca` using AdGuard DNS rewriting and Nginx Proxy Manager reverse proxy.
+All services are accessible via `*.hightechlowlife.ca` using AdGuard DNS rewriting and Traefik reverse proxy.
 
 ## Quick Start
 
@@ -52,6 +52,7 @@ All services are accessible via `*.hightechlowlife.ca` using AdGuard DNS rewriti
 
 ## Networking
 
-- All stacks share the `jellyfinnet` Docker network so Nginx Proxy Manager can route to any container by name
+- All stacks share the `jellyfinnet` Docker network so Traefik can route to any container by name
 - AdGuard Home provides DNS rewriting: `*.hightechlowlife.ca` resolves to the Mac Mini's LAN IP
-- Nginx Proxy Manager handles reverse proxy and TLS termination with a Cloudflare Origin Certificate
+- Traefik handles reverse proxy and TLS termination with Let's Encrypt wildcard certs via Cloudflare DNS-01 challenge
+- Routing is fully declarative via Docker labels in each compose file — no manual UI configuration needed

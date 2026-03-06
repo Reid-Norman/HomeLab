@@ -1,0 +1,3 @@
+- name: Configure Traefik
+  debug:
+    msg: "Traefik configuration is declarative via Docker labels — no API setup needed"

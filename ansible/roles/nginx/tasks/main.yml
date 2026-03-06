@@ -1,3 +1,0 @@
-- name: Configure Nginx Proxy Manager
-  debug:
-    msg: "NPM proxy host configuration will be added here (API-based setup)"

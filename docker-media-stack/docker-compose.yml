@@ -17,20 +17,15 @@ services:
     cap_add:
       - NET_ADMIN
     environment:
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=openvpn
       - OPENVPN_USER=${OPENVPN_USER}
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - SERVER_REGIONS=${SERVER_REGIONS}
+      - PRIVATE_INTERNET_ACCESS_OPENVPN_ENCRYPTION_PRESET=${PRIVATE_INTERNET_ACCESS_OPENVPN_ENCRYPTION_PRESET}
+      - VPN_PORT_FORWARDING=${VPN_PORT_FORWARDING}
+      - PORT_FORWARD_ONLY=${PORT_FORWARD_ONLY}
       - DNS_SERVERS=${DNS_SERVERS}
-
-      ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
-      ## When VPN_SERVICE_PROVIDER is custom. Comment the below line
-      #- SERVER_COUNTRIES=${SERVER_COUNTRIES}
-
-      ## Enable below if VPN_SERVICE_PROVIDER=custom
-      - VPN_TYPE=openvpn # or wireguard. 
-
-      ## If VPN_TYPE is openvpn
-      #- OPENVPN_CUSTOM_CONFIG=/gluetun/custom.conf
     networks:
       - ${MY_NETWORK}
     devices:
@@ -45,6 +40,20 @@ services:
       - 9696:9696
       - 8191:8191 # flaresolverr port
     restart: "unless-stopped"
+    labels:
+      - "traefik.enable=true"
+      # qBittorrent (runs in VPN namespace)
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN}`)"
+      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.tls.certresolver=cloudflare"
+      - "traefik.http.routers.qbittorrent.service=qbittorrent"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=5080"
+      # Prowlarr (runs in VPN namespace)
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.tls.certresolver=cloudflare"
+      - "traefik.http.routers.prowlarr.service=prowlarr"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
 
   cloudflared:
     profiles: ["vpn", "no-vpn"]
@@ -141,10 +150,12 @@ services:
       - radarr-config:/config
       - torrent-downloads:/downloads
     restart: "unless-stopped"
-    #labels:
-    #  - traefik.enable=true
-    #  - traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)
-    #  - traefik.http.services.radarr.loadbalancer.server.port=7878
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.tls.certresolver=cloudflare"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
 
   sonarr:
     profiles: ["vpn", "no-vpn"]
@@ -165,6 +176,12 @@ services:
     ports:
       - 8989:8989
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.tls.certresolver=cloudflare"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
 
   jellyseerr:
     profiles: ["vpn", "no-vpn"]
@@ -181,6 +198,12 @@ services:
     ports:
       - 5055:5055
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN}`)"
+      - "traefik.http.routers.jellyseerr.entrypoints=websecure"
+      - "traefik.http.routers.jellyseerr.tls.certresolver=cloudflare"
+      - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
 
   jellyfin:
     profiles: ["vpn", "no-vpn"]
@@ -202,6 +225,12 @@ services:
       - 7359:7359/udp
       - 8920:8920
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin.tls.certresolver=cloudflare"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
 
   recommendarr:
     profiles: ["recommendarr"]
@@ -219,6 +248,12 @@ services:
     ports:
       - 3000:3000
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.recommendarr.rule=Host(`recommendarr.${DOMAIN}`)"
+      - "traefik.http.routers.recommendarr.entrypoints=websecure"
+      - "traefik.http.routers.recommendarr.tls.certresolver=cloudflare"
+      - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
 
 
   # =================================== AUDIOBOOK SERVICES ===================================
@@ -242,6 +277,12 @@ services:
     ports:
       - 5299:5299
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lazylibrarian.rule=Host(`lazylibrarian.${DOMAIN}`)"
+      - "traefik.http.routers.lazylibrarian.entrypoints=websecure"
+      - "traefik.http.routers.lazylibrarian.tls.certresolver=cloudflare"
+      - "traefik.http.services.lazylibrarian.loadbalancer.server.port=5299"
 
   audiobookshelf:
     profiles: ["vpn", "no-vpn"]
@@ -260,6 +301,12 @@ services:
     ports:
       - 13378:80
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.audiobookshelf.rule=Host(`audiobookshelf.${DOMAIN}`)"
+      - "traefik.http.routers.audiobookshelf.entrypoints=websecure"
+      - "traefik.http.routers.audiobookshelf.tls.certresolver=cloudflare"
+      - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
 
 
  # =================================== MISC SERVICES ===================================

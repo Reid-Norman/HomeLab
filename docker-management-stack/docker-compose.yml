@@ -13,6 +13,12 @@ services:
       - "9000:9000"
     networks:
       - jellyfinnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=cloudflare"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -35,6 +41,12 @@ services:
       - "3001:3001"
     networks:
       - jellyfinnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.${DOMAIN}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=cloudflare"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
 
   dozzle:
     image: amir20/dozzle:latest
@@ -48,6 +60,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - jellyfinnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls.certresolver=cloudflare"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
 
 volumes:
   portainer-data:

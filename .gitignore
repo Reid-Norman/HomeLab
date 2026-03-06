@@ -20,6 +20,9 @@ ansible/group_vars/all/vault.yml
 # Backups
 *.backup
 
+# VPN config files (contain certs)
+*.ovpn
+
 # Docker
 **/node_modules
 **/.cache

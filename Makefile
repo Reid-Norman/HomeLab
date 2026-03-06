@@ -21,7 +21,7 @@ deploy-automation:
 deploy-all: deploy-management deploy-networking deploy-media deploy-automation
 
 ansible-sync:
-	ansible-playbook -i ansible/inventory/hosts.yml ansible/site.yml
+	ansible-playbook -i ansible/inventory/hosts.yml ansible/site.yml --ask-vault-pass
 
 vault-edit:
 	ansible-vault edit ansible/group_vars/all/vault.yml

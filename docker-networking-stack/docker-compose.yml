@@ -1,16 +1,43 @@
 name: docker-networking-stack
 services:
-  nginx-proxy-manager:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx-proxy-manager
+  traefik:
+    image: traefik:latest
+    container_name: traefik
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "80:80"
-      - "81:81"
       - "443:443"
+    environment:
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - CF_ZONE_API_TOKEN=${CF_DNS_API_TOKEN}
+      - CF_API_EMAIL=${CF_API_EMAIL}
     volumes:
-      - nginx-data:/data
-      - nginx-letsencrypt:/etc/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-certs:/certs
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=jellyfinnet"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
+      - "--certificatesresolvers.cloudflare.acme.email=${LE_EMAIL}"
+      - "--certificatesresolvers.cloudflare.acme.storage=/certs/acme.json"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
     networks:
       - jellyfinnet
 
@@ -31,8 +58,7 @@ services:
       - jellyfinnet
 
 volumes:
-  nginx-data:
-  nginx-letsencrypt:
+  traefik-certs:
   adguard-data:
   adguard-conf:
 

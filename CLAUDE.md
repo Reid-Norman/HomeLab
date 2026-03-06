@@ -12,10 +12,10 @@ Four independent Docker Compose stacks at the repo root, each with its own `dock
 
 - **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, LazyLibrarian, Audiobookshelf
 - **docker-management-stack/** — Portainer, Watchtower, Uptime Kuma, Dozzle
-- **docker-networking-stack/** — Nginx Proxy Manager, AdGuard Home
+- **docker-networking-stack/** — Traefik, AdGuard Home
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, qbittorrent, prowlarr, sonarr, radarr, recyclarr, adguard, nginx, uptime_kuma. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, qbittorrent, prowlarr, sonarr, radarr, recyclarr, adguard, traefik, uptime_kuma. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -51,9 +51,10 @@ cd docker-media-stack && docker compose up -d
 
 - **VPN namespace:** Services needing VPN (qBittorrent, Prowlarr, FlareSolverr) use `network_mode: "service:vpn"` — their ports are exposed via the Gluetun container, not directly.
 - **Static IPs:** Radarr and Sonarr get static container IPs on the Docker network for stable inter-service communication.
-- **Shared network:** All stacks share the `jellyfinnet` Docker network (172.20.0.0/16) so Nginx Proxy Manager can route to any container by name.
+- **Shared network:** All stacks share the `jellyfinnet` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
+- **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, entrypoint, certresolver, and loadbalancer port. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
-- **Hostname-based access:** All services accessed via `*.hightechlowlife.ca` — AdGuard provides DNS rewriting, Nginx Proxy Manager handles reverse proxy + TLS.
+- **Hostname-based access:** All services accessed via `*.hightechlowlife.ca` — AdGuard provides DNS rewriting, Traefik handles reverse proxy + TLS via Let's Encrypt wildcard certs (Cloudflare DNS-01 challenge).
 
 ## Key Service Relationships
 
@@ -63,7 +64,7 @@ Radarr/Sonarr → qBittorrent  (download client)
 Jellyseerr → Radarr/Sonarr  (media requests)
 Jellyfin  (serves media library)
 AdGuard Home  (DNS rewriting for *.hightechlowlife.ca)
-Nginx Proxy Manager  (reverse proxy + TLS termination)
+Traefik  (reverse proxy + TLS termination)
 ```
 
 ## When Modifying Docker Compose Files

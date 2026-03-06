@@ -12,6 +12,12 @@ services:
       - semaphore-data:/var/lib/semaphore
     networks:
       - jellyfinnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.semaphore.rule=Host(`semaphore.${DOMAIN}`)"
+      - "traefik.http.routers.semaphore.entrypoints=websecure"
+      - "traefik.http.routers.semaphore.tls.certresolver=cloudflare"
+      - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
 
 volumes:
   semaphore-data:
