@@ -33,6 +33,11 @@ vault_le_email: "REPLACE_LE_EMAIL"
 
 # Semaphore
 vault_semaphore_secret_key: "REPLACE_SEMAPHORE_SECRET"
+vault_semaphore_admin_user: "admin"
+vault_semaphore_admin_name: "Admin"
+vault_semaphore_admin_email: "REPLACE_ADMIN_EMAIL"
+vault_semaphore_admin_password: "REPLACE_SEMAPHORE_ADMIN_PASSWORD"
+vault_semaphore_db_password: "REPLACE_SEMAPHORE_DB_PASSWORD"
 
 # Deployment-specific (makes repo portable)
 vault_domain: "hightechlowlife.ca"

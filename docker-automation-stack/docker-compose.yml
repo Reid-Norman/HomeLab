@@ -1,11 +1,41 @@
 name: docker-automation-stack
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: semaphore-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${SEMAPHORE_DB_NAME}
+      - POSTGRES_USER=${SEMAPHORE_DB_USER}
+      - POSTGRES_PASSWORD=${SEMAPHORE_DB_PASS}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - jellyfinnet
+
   semaphore:
     image: semaphoreui/semaphore:latest
     container_name: semaphore
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_started
     env_file:
       - .env
+    environment:
+      - SEMAPHORE_DB_DIALECT=postgres
+      - SEMAPHORE_DB_HOST=semaphore-db
+      - SEMAPHORE_DB_PORT=5432
+      - SEMAPHORE_DB_NAME=${SEMAPHORE_DB_NAME}
+      - SEMAPHORE_DB_USER=${SEMAPHORE_DB_USER}
+      - SEMAPHORE_DB_PASS=${SEMAPHORE_DB_PASS}
+      - SEMAPHORE_ADMIN=${SEMAPHORE_ADMIN}
+      - SEMAPHORE_ADMIN_NAME=${SEMAPHORE_ADMIN_NAME}
+      - SEMAPHORE_ADMIN_EMAIL=${SEMAPHORE_ADMIN_EMAIL}
+      - SEMAPHORE_ADMIN_PASSWORD=${SEMAPHORE_ADMIN_PASSWORD}
+      - SEMAPHORE_ACCESS_KEY_ENCRYPTION=${SEMAPHORE_SECRET_KEY}
     ports:
       - "3010:3000"
     volumes:
@@ -20,6 +50,7 @@ services:
       - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
 
 volumes:
+  postgres-data:
   semaphore-data:
 
 networks:
