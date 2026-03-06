@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: deploy-media deploy-management deploy-networking deploy-automation deploy-all ansible-sync vault-edit
+.PHONY: deploy-media deploy-management deploy-networking deploy-automation deploy-all ansible-sync vault-edit generate-creds
 
 deploy-media:
 	@echo "Starting docker-media-stack..."
@@ -25,3 +25,6 @@ ansible-sync:
 
 vault-edit:
 	ansible-vault edit ansible/group_vars/all/vault.yml
+
+generate-creds:
+	@./scripts/generate-credentials.sh $(STACK)

@@ -40,5 +40,5 @@ vault_semaphore_admin_password: "REPLACE_SEMAPHORE_ADMIN_PASSWORD"
 vault_semaphore_db_password: "REPLACE_SEMAPHORE_DB_PASSWORD"
 
 # Deployment-specific (makes repo portable)
-vault_domain: "hightechlowlife.ca"
-vault_server_ip: "192.168.68.82"
+vault_domain: "example.com"
+vault_server_ip: "192.168.1.100"
