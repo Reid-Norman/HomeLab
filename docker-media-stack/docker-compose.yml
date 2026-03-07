@@ -2,7 +2,7 @@
 # COMPOSE_PROFILES=vpn,recommendarr docker compose up -d
 
 
-#version: "3.9"
+# version: "3.9"
 name: docker-media-stack
 services:
 
@@ -100,8 +100,8 @@ services:
         condition: service_healthy # Uncomment this line if vpn is enabled
     network_mode: service:vpn # Uncomment this line if vpn is enabled
 
-    #networks:               # Comment this line if vpn is enabled
-    #  - ${MY_NETWORK}           # Comment this line if vpn is enabled
+    # networks:               # Comment this line if vpn is enabled
+    #   - ${MY_NETWORK}         # Comment this line if vpn is enabled
     environment:
       - ${PUID}
       - ${PGID}
@@ -110,24 +110,24 @@ services:
       - prowlarr-config:/config
 
     # Comment below ports if VPN is enabled.
-    #ports:
-    #  - 9696:9696
+    # ports:
+    #   - 9696:9696
     restart: unless-stopped
 
   flaresolverr:
-      profiles: ["vpn", "no-vpn"]
-      container_name: flaresolverr
-      image: ghcr.io/flaresolverr/flaresolverr:latest
-      depends_on:
-        vpn:
-          condition: service_healthy
-      network_mode: service:vpn
-      environment:
-        - LOG_LEVEL=info
-        - LOG_HTML=false
-        - CAPTCHA_SOLVER=none
-        - TZ=${TZ}
-      restart: unless-stopped
+    profiles: ["vpn", "no-vpn"]
+    container_name: flaresolverr
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    depends_on:
+      vpn:
+        condition: service_healthy
+    network_mode: service:vpn
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=${TZ}
+    restart: unless-stopped
 
 
   # =================================== MOVIE/TV SERVICES ===================================
@@ -136,10 +136,8 @@ services:
     container_name: radarr
     image: lscr.io/linuxserver/radarr:latest
     networks:
-    #  - ${MY_NETWORK}   # Comment this line if VPN is enabled
-    ## Uncomment below lines if VPN is enabled
       jellyfinnet:
-          ipv4_address: ${RADARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `${MY_NETWORK}` e.g. 172.20.0.2
+        ipv4_address: ${RADARR_STATIC_CONTAINER_IP}
     environment:
       - ${PUID}
       - ${PGID}
@@ -162,10 +160,8 @@ services:
     image: linuxserver/sonarr:latest
     container_name: sonarr
     networks:
-    #  - ${MY_NETWORK}   # Comment this line if VPN is enabled
-    ## Uncomment below lines if VPN is enabled
       jellyfinnet:
-        ipv4_address: ${SONARR_STATIC_CONTAINER_IP} # It should be available IPv4 address in range of docker network `${MY_NETWORK}` e.g. 172.20.0.2
+        ipv4_address: ${SONARR_STATIC_CONTAINER_IP}
     environment:
       - ${PUID}
       - ${PGID}
@@ -219,7 +215,7 @@ services:
       - jellyfin-config:/config
       - torrent-downloads:/data
   # devices:
-   #  - /dev/videoN:/dev/videoN # Mount GPU device 
+  #   - /dev/videoN:/dev/videoN  # Mount GPU device
     ports:
       - 8096:8096
       - 7359:7359/udp
@@ -308,8 +304,7 @@ services:
       - "traefik.http.routers.audiobookshelf.tls.certresolver=cloudflare"
       - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
 
-
- # =================================== MISC SERVICES ===================================
+  # =================================== MISC SERVICES ===================================
 
   # Doc: https://github.com/navilg/cleanmyarr
   # cleanmyarr:

@@ -27,7 +27,12 @@
 - name: Skip if Jellyseerr not ready
   ansible.builtin.debug:
     msg: >-
-      Jellyseerr skipped — {% if not (jellyseerr_public.json.initialized | default(false)) %}setup wizard not completed. Visit http://localhost:5055 first.{% else %}Jellyfin credentials not in vault. Run 'make generate-creds STACK=media'.{% endif %}
+      Jellyseerr skipped —
+      {% if not (jellyseerr_public.json.initialized | default(false)) %}
+      setup wizard not completed. Visit http://localhost:5055 first.
+      {% else %}
+      Jellyfin credentials not in vault. Run 'make generate-creds STACK=media'.
+      {% endif %}
   when: not jellyseerr_ready
 
 - name: Configure Jellyseerr
