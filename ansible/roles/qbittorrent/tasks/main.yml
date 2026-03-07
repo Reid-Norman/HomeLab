@@ -1,3 +1,69 @@
-- name: Show qBittorrent placeholder
-  debug:
-    msg: "qBittorrent user from vault: {{ qbittorrent_username }}"
+- name: Wait for qBittorrent API
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/version"
+    method: GET
+    status_code: [200, 403]
+  register: qbt_health
+  retries: 12
+  delay: 10
+  until: qbt_health.status in [200, 403]
+
+- name: Login to qBittorrent
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/auth/login"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ qbittorrent_username }}"
+      password: "{{ qbittorrent_password }}"
+    status_code: 200
+  register: qbt_login
+  no_log: true
+
+- name: Set qBittorrent session cookie
+  ansible.builtin.set_fact:
+    qbt_cookie: "{{ qbt_login.cookies_string }}"
+
+- name: Get current qBittorrent preferences
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/preferences"
+    method: GET
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    status_code: 200
+  register: qbt_prefs
+
+- name: Set qBittorrent download path
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/setPreferences"
+    method: POST
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    body_format: form-urlencoded
+    body:
+      json: '{"save_path": "{{ qbittorrent_download_path }}"}'
+    status_code: 200
+  when: qbt_prefs.json.save_path != qbittorrent_download_path
+
+- name: Get existing qBittorrent categories
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/torrents/categories"
+    method: GET
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    status_code: 200
+  register: qbt_categories
+
+- name: Create qBittorrent categories
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/torrents/createCategory"
+    method: POST
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    body_format: form-urlencoded
+    body:
+      category: "{{ item.name }}"
+      savePath: "{{ item.savePath }}"
+    status_code: 200
+  loop: "{{ qbittorrent_categories }}"
+  when: item.name not in qbt_categories.json

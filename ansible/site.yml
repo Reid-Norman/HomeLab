@@ -9,6 +9,7 @@
     - role: prowlarr
     - role: sonarr
     - role: radarr
+    - role: jellyseerr
     - role: recyclarr
     - role: adguard
     - role: traefik

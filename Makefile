@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: deploy-media deploy-management deploy-networking deploy-automation deploy-all ansible-sync vault-edit generate-creds
+.PHONY: deploy-media deploy-management deploy-networking deploy-automation deploy-all ansible-sync ansible-deps vault-edit generate-creds extract-keys
 
 deploy-media:
 	@echo "Starting docker-media-stack..."
@@ -20,6 +20,10 @@ deploy-automation:
 
 deploy-all: deploy-management deploy-networking deploy-media deploy-automation
 
+ansible-deps:
+	ansible-galaxy collection install -r ansible/requirements.yml --upgrade
+	pip3 install --user uptime-kuma-api
+
 ansible-sync:
 	ansible-playbook -i ansible/inventory/hosts.yml ansible/site.yml --ask-vault-pass
 
@@ -28,3 +32,6 @@ vault-edit:
 
 generate-creds:
 	@./scripts/generate-credentials.sh $(STACK)
+
+extract-keys:
+	@./scripts/extract-api-keys.sh

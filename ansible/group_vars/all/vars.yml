@@ -8,7 +8,85 @@ automation_stack_path: "{{ docker_compose_root }}/docker-automation-stack"
 # Networking
 mac_mini_lan_ip: "{{ vault_server_ip }}"
 
+# Static container IPs (must match docker-compose.yml assignments)
+sonarr_static_ip: "172.20.0.11"
+radarr_static_ip: "172.20.0.10"
+
+# Prowlarr URL (accessed from within VPN namespace)
+prowlarr_url: "http://vpn:9696"
+
 # AdGuard DNS rewrites (wildcard covers all subdomains)
 adguard_dns_rewrites:
   - domain: "*.{{ vault_domain }}"
     answer: "{{ mac_mini_lan_ip }}"
+
+# qBittorrent preferences
+qbittorrent_download_path: "/downloads"
+qbittorrent_categories:
+  - name: "tv-sonarr"
+    savePath: "/downloads/tvshows"
+  - name: "radarr"
+    savePath: "/downloads/movies"
+
+# Sonarr root folders
+sonarr_root_folders:
+  - path: "/downloads/tvshows"
+  - path: "/downloads/anime"
+
+# Radarr root folders
+radarr_root_folders:
+  - path: "/downloads/movies"
+
+# Prowlarr application sync targets
+prowlarr_applications:
+  - name: "Sonarr"
+    implementation: "Sonarr"
+    baseUrl: "http://{{ sonarr_static_ip }}:8989"
+    apiKey: "{{ sonarr_api_key }}"
+  - name: "Radarr"
+    implementation: "Radarr"
+    baseUrl: "http://{{ radarr_static_ip }}:7878"
+    apiKey: "{{ radarr_api_key }}"
+
+# Uptime Kuma monitors
+uptime_kuma_monitors:
+  - name: "Jellyfin"
+    type: http
+    url: "http://localhost:8096"
+  - name: "Sonarr"
+    type: http
+    url: "http://localhost:8989"
+  - name: "Radarr"
+    type: http
+    url: "http://localhost:7878"
+  - name: "Prowlarr"
+    type: http
+    url: "http://localhost:9696"
+  - name: "qBittorrent"
+    type: http
+    url: "http://localhost:5080"
+  - name: "Jellyseerr"
+    type: http
+    url: "http://localhost:5055"
+  - name: "AdGuard Home"
+    type: http
+    url: "http://localhost:8053"
+  - name: "Traefik"
+    type: http
+    url: "http://localhost:80"
+    maxretries: 1
+  - name: "Portainer"
+    type: http
+    url: "http://localhost:9000"
+  - name: "Semaphore"
+    type: http
+    url: "http://localhost:3010/api/ping"
+  - name: "Dozzle"
+    type: http
+    url: "http://localhost:9999"
+  - name: "Audiobookshelf"
+    type: http
+    url: "http://localhost:13378"
+  - name: "LazyLibrarian"
+    type: http
+    url: "http://localhost:5299"

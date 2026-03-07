@@ -1,11 +1,94 @@
-- name: Ensure Radarr is reachable
-  uri:
+- name: Wait for Radarr API
+  ansible.builtin.uri:
     url: "http://localhost:7878/api/v3/system/status"
     method: GET
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
     status_code: 200
-  register: radarr_status
-  ignore_errors: true
+  register: radarr_health
+  retries: 12
+  delay: 10
+  until: radarr_health.status == 200
 
-- name: Configure Radarr - placeholder
-  debug:
-    msg: "Radarr API key would be used from vault: {{ radarr_api_key }}"
+- name: Get existing Radarr download clients
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/downloadclient"
+    method: GET
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    status_code: 200
+  register: radarr_download_clients
+
+- name: Check if qBittorrent download client exists in Radarr
+  ansible.builtin.set_fact:
+    radarr_has_qbt: >-
+      {{ radarr_download_clients.json
+         | selectattr('implementation', 'equalto', 'QBittorrent')
+         | list | length > 0 }}
+
+- name: Add qBittorrent download client to Radarr
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/downloadclient"
+    method: POST
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    body_format: json
+    body:
+      enable: true
+      protocol: "torrent"
+      name: "qBittorrent"
+      implementation: "QBittorrent"
+      configContract: "QBittorrentSettings"
+      fields:
+        - name: "host"
+          value: "vpn"
+        - name: "port"
+          value: 5080
+        - name: "username"
+          value: "{{ qbittorrent_username }}"
+        - name: "password"
+          value: "{{ qbittorrent_password }}"
+        - name: "movieCategory"
+          value: "radarr"
+        - name: "movieImportedCategory"
+          value: ""
+        - name: "recentMoviePriority"
+          value: 0
+        - name: "olderMoviePriority"
+          value: 0
+        - name: "initialState"
+          value: 0
+        - name: "sequentialOrder"
+          value: false
+        - name: "firstAndLast"
+          value: false
+    status_code: [200, 201]
+  when: not radarr_has_qbt
+  no_log: true
+
+- name: Get existing Radarr root folders
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/rootfolder"
+    method: GET
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    status_code: 200
+  register: radarr_existing_roots
+
+- name: Extract existing Radarr root folder paths
+  ansible.builtin.set_fact:
+    radarr_existing_root_paths: >-
+      {{ radarr_existing_roots.json | map(attribute='path') | list }}
+
+- name: Add Radarr root folders
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/rootfolder"
+    method: POST
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    body_format: json
+    body:
+      path: "{{ item.path }}"
+    status_code: [200, 201]
+  loop: "{{ radarr_root_folders }}"
+  when: item.path not in radarr_existing_root_paths

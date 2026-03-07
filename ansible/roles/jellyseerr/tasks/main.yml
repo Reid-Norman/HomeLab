@@ -1,0 +1,112 @@
+- name: Wait for Jellyseerr API
+  ansible.builtin.uri:
+    url: "http://localhost:5055/api/v1/status"
+    method: GET
+    status_code: 200
+  register: jellyseerr_health
+  retries: 12
+  delay: 10
+  until: jellyseerr_health.status == 200
+
+- name: Check Jellyseerr initialization status
+  ansible.builtin.uri:
+    url: "http://localhost:5055/api/v1/settings/public"
+    method: GET
+    status_code: 200
+  register: jellyseerr_public
+
+- name: Check if Jellyseerr is ready for configuration
+  ansible.builtin.set_fact:
+    jellyseerr_ready: >-
+      {{ (jellyseerr_public.json.initialized | default(false))
+         and (vault_jellyfin_username | default('') | length > 0)
+         and not (vault_jellyfin_username | default('') is match('REPLACE_.*'))
+         and (vault_jellyfin_password | default('') | length > 0)
+         and not (vault_jellyfin_password | default('') is match('REPLACE_.*')) }}
+
+- name: Skip if Jellyseerr not ready
+  ansible.builtin.debug:
+    msg: >-
+      Jellyseerr skipped — {% if not (jellyseerr_public.json.initialized | default(false)) %}setup wizard not completed. Visit http://localhost:5055 first.{% else %}Jellyfin credentials not in vault. Run 'make generate-creds STACK=media'.{% endif %}
+  when: not jellyseerr_ready
+
+- name: Configure Jellyseerr
+  when: jellyseerr_ready
+  block:
+    - name: Login to Jellyseerr via Jellyfin
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/auth/jellyfin"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ vault_jellyfin_username }}"
+          password: "{{ vault_jellyfin_password }}"
+        status_code: 200
+      register: jellyseerr_login
+      no_log: true
+
+    - name: Set Jellyseerr session cookie
+      ansible.builtin.set_fact:
+        jellyseerr_cookie: "{{ jellyseerr_login.cookies_string }}"
+
+    - name: Get existing Jellyseerr Radarr settings
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/radarr"
+        method: GET
+        headers:
+          Cookie: "{{ jellyseerr_cookie }}"
+        status_code: 200
+      register: jellyseerr_radarr
+
+    - name: Add Radarr to Jellyseerr
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/radarr"
+        method: POST
+        headers:
+          Cookie: "{{ jellyseerr_cookie }}"
+        body_format: json
+        body:
+          name: "Radarr"
+          hostname: "radarr"
+          port: 7878
+          apiKey: "{{ radarr_api_key }}"
+          useSsl: false
+          activeProfileId: 1
+          activeDirectory: "{{ radarr_root_folders[0].path }}"
+          is4k: false
+          minimumAvailability: "released"
+          isDefault: true
+        status_code: [200, 201]
+      when: jellyseerr_radarr.json | length == 0
+
+    - name: Get existing Jellyseerr Sonarr settings
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/sonarr"
+        method: GET
+        headers:
+          Cookie: "{{ jellyseerr_cookie }}"
+        status_code: 200
+      register: jellyseerr_sonarr
+
+    - name: Add Sonarr to Jellyseerr
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/sonarr"
+        method: POST
+        headers:
+          Cookie: "{{ jellyseerr_cookie }}"
+        body_format: json
+        body:
+          name: "Sonarr"
+          hostname: "sonarr"
+          port: 8989
+          apiKey: "{{ sonarr_api_key }}"
+          useSsl: false
+          activeProfileId: 1
+          activeDirectory: "{{ sonarr_root_folders[0].path }}"
+          activeAnimeProfileId: 1
+          activeAnimeDirectory: "{{ sonarr_root_folders[1].path | default(sonarr_root_folders[0].path) }}"
+          is4k: false
+          enableSeasonFolders: true
+          isDefault: true
+        status_code: [200, 201]
+      when: jellyseerr_sonarr.json | length == 0

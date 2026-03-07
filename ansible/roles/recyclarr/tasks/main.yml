@@ -1,3 +1,5 @@
-- name: Recyclarr placeholder
-  debug:
-    msg: "Recyclarr configuration would be applied here"
+- name: Recyclarr info
+  ansible.builtin.debug:
+    msg: >-
+      Recyclarr manages its own configuration via recyclarr.yml and runs on a
+      schedule inside the container. No API configuration needed.

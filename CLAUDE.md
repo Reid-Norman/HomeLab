@@ -15,7 +15,7 @@ Four independent Docker Compose stacks at the repo root, each with its own `dock
 - **docker-networking-stack/** — Traefik, AdGuard Home
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, qbittorrent, prowlarr, sonarr, radarr, recyclarr, adguard, traefik, uptime_kuma. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, qbittorrent, prowlarr, sonarr, radarr, jellyseerr, recyclarr, adguard, traefik, uptime_kuma. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -28,6 +28,9 @@ make deploy-automation
 
 # Deploy all stacks (management → networking → media → automation)
 make deploy-all
+
+# Install/update Ansible collections (run once, or after changing requirements.yml)
+make ansible-deps
 
 # Run Ansible configuration playbook
 make ansible-sync
@@ -90,5 +93,5 @@ Traefik  (reverse proxy + TLS termination)
 
 - Roles target `localhost` with `connection: local` and `gather_facts: false`
 - Vault file is encrypted with `ansible-vault` — use `make vault-edit` to modify
-- The `community.general` collection is required (see `ansible/requirements.yml`)
+- Collections (`community.general`, `lucasheld.uptime_kuma`) are listed in `ansible/requirements.yml` — install with `make ansible-deps` (not run automatically by `ansible-sync` to avoid network hits on every run)
 - The `env_files` role must always run first in `site.yml`

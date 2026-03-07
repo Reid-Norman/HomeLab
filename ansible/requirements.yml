@@ -1,2 +1,6 @@
-- src: community.general
-  version: "~> 6.0"
+collections:
+  - name: community.general
+    version: ">=6.0.0"
+  - name: lucasheld.uptime_kuma
+    version: ">=1.0.0"
+roles: []

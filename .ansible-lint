@@ -1,0 +1,19 @@
+profile: production
+
+exclude_paths:
+  - .git/
+  - .github/
+
+skip_list:
+  # URI tasks don't trigger handlers — they're API calls with idempotency checks
+  - no-handler
+  # We use command/shell sparingly but legitimately in scripts
+  - no-changed-when
+  # Vault variables are referenced without defaults in many places — this is intentional
+  - var-naming[no-role-prefix]
+
+warn_list:
+  # Some tasks legitimately use ignore_errors for optional setup steps
+  - ignore-errors
+  # URI module is used extensively for REST API calls — this is by design
+  - risky-shell-pipe

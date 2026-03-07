@@ -1,11 +1,50 @@
-- name: Ensure Prowlarr is reachable
-  uri:
+- name: Wait for Prowlarr API
+  ansible.builtin.uri:
     url: "http://localhost:9696/api/v1/system/status"
     method: GET
+    headers:
+      X-Api-Key: "{{ prowlarr_api_key }}"
     status_code: 200
-  register: prowlarr_status
-  ignore_errors: true
+  register: prowlarr_health
+  retries: 12
+  delay: 10
+  until: prowlarr_health.status == 200
 
-- name: Configure Prowlarr - placeholder
-  debug:
-    msg: "Prowlarr API key would be used from vault: {{ prowlarr_api_key }}"
+- name: Get existing Prowlarr applications
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/applications"
+    method: GET
+    headers:
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: 200
+  register: prowlarr_existing_apps
+
+- name: Extract existing Prowlarr application names
+  ansible.builtin.set_fact:
+    prowlarr_existing_app_names: >-
+      {{ prowlarr_existing_apps.json | map(attribute='name') | list }}
+
+- name: Add Prowlarr application sync targets
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/applications"
+    method: POST
+    headers:
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      syncLevel: "fullSync"
+      implementation: "{{ item.implementation }}"
+      configContract: "{{ item.implementation }}Settings"
+      fields:
+        - name: "prowlarrUrl"
+          value: "{{ prowlarr_url }}"
+        - name: "baseUrl"
+          value: "{{ item.baseUrl }}"
+        - name: "apiKey"
+          value: "{{ item.apiKey }}"
+        - name: "syncCategories"
+          value: []
+    status_code: [200, 201]
+  loop: "{{ prowlarr_applications }}"
+  when: item.name not in prowlarr_existing_app_names

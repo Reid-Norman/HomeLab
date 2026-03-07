@@ -1,11 +1,94 @@
-- name: Ensure Sonarr is reachable
-  uri:
-    url: "http://localhost:8989/api/system/status"
+- name: Wait for Sonarr API
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/system/status"
     method: GET
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
     status_code: 200
-  register: sonarr_status
-  ignore_errors: true
+  register: sonarr_health
+  retries: 12
+  delay: 10
+  until: sonarr_health.status == 200
 
-- name: Configure Sonarr - placeholder
-  debug:
-    msg: "Sonarr API key would be used from vault: {{ sonarr_api_key }}"
+- name: Get existing Sonarr download clients
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/downloadclient"
+    method: GET
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: 200
+  register: sonarr_download_clients
+
+- name: Check if qBittorrent download client exists in Sonarr
+  ansible.builtin.set_fact:
+    sonarr_has_qbt: >-
+      {{ sonarr_download_clients.json
+         | selectattr('implementation', 'equalto', 'QBittorrent')
+         | list | length > 0 }}
+
+- name: Add qBittorrent download client to Sonarr
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/downloadclient"
+    method: POST
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    body_format: json
+    body:
+      enable: true
+      protocol: "torrent"
+      name: "qBittorrent"
+      implementation: "QBittorrent"
+      configContract: "QBittorrentSettings"
+      fields:
+        - name: "host"
+          value: "vpn"
+        - name: "port"
+          value: 5080
+        - name: "username"
+          value: "{{ qbittorrent_username }}"
+        - name: "password"
+          value: "{{ qbittorrent_password }}"
+        - name: "tvCategory"
+          value: "tv-sonarr"
+        - name: "tvImportedCategory"
+          value: ""
+        - name: "recentTvPriority"
+          value: 0
+        - name: "olderTvPriority"
+          value: 0
+        - name: "initialState"
+          value: 0
+        - name: "sequentialOrder"
+          value: false
+        - name: "firstAndLast"
+          value: false
+    status_code: [200, 201]
+  when: not sonarr_has_qbt
+  no_log: true
+
+- name: Get existing Sonarr root folders
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/rootfolder"
+    method: GET
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: 200
+  register: sonarr_existing_roots
+
+- name: Extract existing Sonarr root folder paths
+  ansible.builtin.set_fact:
+    sonarr_existing_root_paths: >-
+      {{ sonarr_existing_roots.json | map(attribute='path') | list }}
+
+- name: Add Sonarr root folders
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/rootfolder"
+    method: POST
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    body_format: json
+    body:
+      path: "{{ item.path }}"
+    status_code: [200, 201]
+  loop: "{{ sonarr_root_folders }}"
+  when: item.path not in sonarr_existing_root_paths

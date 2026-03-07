@@ -1,0 +1,45 @@
+name: Validate
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install ansible ansible-lint yamllint
+          pip install uptime-kuma-api
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: YAML Lint
+        run: yamllint .
+
+      - name: Ansible Lint
+        run: ansible-lint ansible/site.yml
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck scripts/*.sh
+
+      - name: Ansible Syntax Check
+        env:
+          VAULT_PASSWORD: ${{ secrets.VAULT_PASSWORD }}
+        run: |
+          echo "$VAULT_PASSWORD" > /tmp/vault-pass
+          ansible-playbook --syntax-check -i ansible/inventory/hosts.yml ansible/site.yml --vault-password-file /tmp/vault-pass
+          rm -f /tmp/vault-pass
+
+      - name: Secrets Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

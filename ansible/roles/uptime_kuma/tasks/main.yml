@@ -1,3 +1,51 @@
-- name: Uptime Kuma placeholder
-  debug:
-    msg: "Uptime Kuma configuration steps would run here"
+- name: Wait for Uptime Kuma
+  ansible.builtin.uri:
+    url: "http://localhost:3001"
+    method: GET
+    status_code: [200, 302]
+  register: kuma_health
+  retries: 12
+  delay: 10
+  until: kuma_health.status in [200, 302]
+
+- name: Check if Uptime Kuma needs initial setup
+  lucasheld.uptime_kuma.setup:
+    api_url: "http://localhost:3001"
+    api_username: "{{ vault_uptime_kuma_username }}"
+    api_password: "{{ vault_uptime_kuma_password }}"
+  register: kuma_setup
+  ignore_errors: true
+  no_log: true
+
+- name: Login to Uptime Kuma
+  lucasheld.uptime_kuma.login:
+    api_url: "http://localhost:3001"
+    api_username: "{{ vault_uptime_kuma_username }}"
+    api_password: "{{ vault_uptime_kuma_password }}"
+  no_log: true
+
+- name: Get existing monitors
+  lucasheld.uptime_kuma.monitor_info:
+    api_url: "http://localhost:3001"
+    api_username: "{{ vault_uptime_kuma_username }}"
+    api_password: "{{ vault_uptime_kuma_password }}"
+  register: existing_monitors
+
+- name: Extract existing monitor names
+  ansible.builtin.set_fact:
+    existing_monitor_names: >-
+      {{ existing_monitors.monitors | map(attribute='name') | list }}
+
+- name: Create Uptime Kuma monitors
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://localhost:3001"
+    api_username: "{{ vault_uptime_kuma_username }}"
+    api_password: "{{ vault_uptime_kuma_password }}"
+    name: "{{ item.name }}"
+    type: "{{ item.type }}"
+    url: "{{ item.url }}"
+    interval: "{{ item.interval | default(60) }}"
+    maxretries: "{{ item.maxretries | default(3) }}"
+    state: present
+  loop: "{{ uptime_kuma_monitors }}"
+  when: item.name not in existing_monitor_names

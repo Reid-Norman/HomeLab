@@ -1,37 +1,40 @@
 # Ansible Vault secrets placeholder
 # Copy to vault.yml and encrypt: ansible-vault encrypt vault.yml
 # Edit with: make vault-edit
+# Or generate all credentials: make generate-creds STACK=all
 
-# Service API keys
-radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
-sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
-prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
+# --- Common (user-provided via generate-creds common) ---
+vault_domain: "example.com"
+vault_server_ip: "192.168.1.100"
+vault_le_email: "REPLACE_LE_EMAIL"
 
-# qBittorrent
-qbittorrent_username: "REPLACE_QBT_USER"
-qbittorrent_password: "REPLACE_QBT_PASS"
+# --- Networking (generate-creds networking) ---
+# Auto-generated: htpasswd hash
+vault_traefik_dashboard_password: "REPLACE_WITH_HTPASSWD_OUTPUT"
+# User-provided: Cloudflare credentials
+vault_cf_api_email: "REPLACE_CF_API_EMAIL"
+vault_cf_dns_api_token: "REPLACE_CF_DNS_API_TOKEN"
 
-# AdGuard Home
+# --- Management (generate-creds management) ---
+# Auto-generated
 adguard_username: "REPLACE_ADGUARD_USERNAME"
 adguard_password: "REPLACE_ADGUARD_PASSWORD"
+vault_uptime_kuma_username: "REPLACE_UPTIME_KUMA_USER"
+vault_uptime_kuma_password: "REPLACE_UPTIME_KUMA_PASS"
 
-# VPN (for .env.j2 template)
+# --- Media (generate-creds media) ---
+# User-provided: VPN credentials
 vault_vpn_service_provider: "pia"
 vault_openvpn_user: "REPLACE_VPN_USER"
 vault_openvpn_password: "REPLACE_VPN_PASSWORD"
-
-# Cloudflare
+# User-provided: Cloudflare tunnel
 vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
-vault_cf_dns_api_token: "REPLACE_CF_DNS_API_TOKEN"
-vault_cf_api_email: "REPLACE_CF_API_EMAIL"
+# Auto-generated
+qbittorrent_username: "REPLACE_QBT_USER"
+qbittorrent_password: "REPLACE_QBT_PASS"
 
-# Traefik
-vault_traefik_dashboard_password: "REPLACE_WITH_HTPASSWD_OUTPUT"  # htpasswd -nbB admin yourpassword
-
-# Email
-vault_le_email: "REPLACE_LE_EMAIL"
-
-# Semaphore
+# --- Automation / Semaphore (generate-creds semaphore) ---
+# Auto-generated
 vault_semaphore_secret_key: "REPLACE_SEMAPHORE_SECRET"
 vault_semaphore_admin_user: "admin"
 vault_semaphore_admin_name: "Admin"
@@ -39,6 +42,12 @@ vault_semaphore_admin_email: "REPLACE_ADMIN_EMAIL"
 vault_semaphore_admin_password: "REPLACE_SEMAPHORE_ADMIN_PASSWORD"
 vault_semaphore_db_password: "REPLACE_SEMAPHORE_DB_PASSWORD"
 
-# Deployment-specific (makes repo portable)
-vault_domain: "example.com"
-vault_server_ip: "192.168.1.100"
+# --- Post-deployment (extract-api-keys.sh) ---
+# Extracted from running containers after first deploy
+radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
+sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
+prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
+# Jellyfin admin (user-provided: used by Jellyseerr role + future Jellyfin role)
+vault_jellyfin_username: "REPLACE_JELLYFIN_USER"
+vault_jellyfin_email: "REPLACE_JELLYFIN_EMAIL"
+vault_jellyfin_password: "REPLACE_JELLYFIN_PASS"
