@@ -9,7 +9,7 @@ VAULT_FILE="${REPO_ROOT}/ansible/group_vars/all/vault.yml"
 STACK="${1:?Usage: $0 <stack>  (available: common, networking, management, media, semaphore, all)}"
 
 # --- Vault password handling ---
-read -s -p "Vault password: " VAULT_PASS
+read -r -s -p "Vault password: " VAULT_PASS
 echo
 
 VAULT_PASS_FILE=$(mktemp)
@@ -20,7 +20,7 @@ trap 'rm -f "$VAULT_PASS_FILE" "$TMPFILE"' EXIT
 
 # Decrypt or initialize vault
 if [ -f "$VAULT_FILE" ]; then
-    if head -1 "$VAULT_FILE" | grep -q '^\$ANSIBLE_VAULT'; then
+    if head -1 "$VAULT_FILE" | grep -q "^\\\$ANSIBLE_VAULT"; then
         if ! ansible-vault view "$VAULT_FILE" --vault-password-file="$VAULT_PASS_FILE" > "$TMPFILE" 2>/dev/null; then
             echo "Error: Failed to decrypt vault. Wrong password?"
             exit 1
@@ -80,11 +80,11 @@ prompt_value() {
     local prompt="$1" default="${2:-}"
     local value
     if [ -n "$default" ]; then
-        read -p "${prompt} [${default}]: " value
+        read -r -p "${prompt} [${default}]: " value
         echo "${value:-$default}"
     else
         while true; do
-            read -p "${prompt}: " value
+            read -r -p "${prompt}: " value
             if [ -n "$value" ]; then
                 echo "$value"
                 return
@@ -99,7 +99,7 @@ prompt_secret() {
     local prompt="$1"
     local value
     while true; do
-        read -s -p "${prompt}: " value
+        read -r -s -p "${prompt}: " value
         echo >&2  # newline after hidden input
         if [ -n "$value" ]; then
             echo "$value"

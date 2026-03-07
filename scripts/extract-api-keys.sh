@@ -10,7 +10,7 @@ VAULT_FILE="${REPO_ROOT}/ansible/group_vars/all/vault.yml"
 SERVICES=(radarr sonarr prowlarr)
 
 # --- Vault password handling ---
-read -s -p "Vault password: " VAULT_PASS
+read -r -s -p "Vault password: " VAULT_PASS
 echo
 
 VAULT_PASS_FILE=$(mktemp)
