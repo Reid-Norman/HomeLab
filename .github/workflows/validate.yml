@@ -35,11 +35,16 @@ jobs:
         env:
           VAULT_PASSWORD: ${{ secrets.VAULT_PASSWORD }}
         run: |
+          if [ -z "$VAULT_PASSWORD" ]; then
+            echo "VAULT_PASSWORD secret not set — skipping syntax check"
+            exit 0
+          fi
           echo "$VAULT_PASSWORD" > /tmp/vault-pass
           ansible-playbook --syntax-check -i ansible/inventory/hosts.yml ansible/site.yml --vault-password-file /tmp/vault-pass
           rm -f /tmp/vault-pass
 
       - name: Secrets Scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: zricethezav/gitleaks-action@v2
         env:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_COMMENTS: false
