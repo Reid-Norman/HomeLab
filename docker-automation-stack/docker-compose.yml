@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - jellyfinnet
+      - homelab-network
 
   semaphore:
     image: semaphoreui/semaphore:latest
@@ -41,7 +41,7 @@ services:
     volumes:
       - semaphore-data:/var/lib/semaphore
     networks:
-      - jellyfinnet
+      - homelab-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.semaphore.rule=Host(`semaphore.${DOMAIN}`)"
@@ -54,5 +54,5 @@ volumes:
   semaphore-data:
 
 networks:
-  jellyfinnet:
+  homelab-network:
     external: true

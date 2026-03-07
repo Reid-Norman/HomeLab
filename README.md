@@ -17,7 +17,7 @@ Self-hosted media and infrastructure automation for a Mac Mini. Docker Compose p
 
 | Stack | Services | Purpose |
 |-------|----------|---------|
-| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, LazyLibrarian, Audiobookshelf | Media acquisition, streaming, and audiobooks |
+| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
 | **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Container management, monitoring, and auto-updates |
 | **docker-networking-stack** | Traefik, AdGuard Home | Reverse proxy, TLS termination, DNS rewriting |
 | **docker-automation-stack** | Semaphore | Ansible UI for running playbooks from a browser |
@@ -29,13 +29,16 @@ Prowlarr ──→ Radarr/Sonarr     (indexer sync — Prowlarr pushes indexers 
 Radarr/Sonarr ──→ qBittorrent  (download client — sends torrents for downloading)
 Jellyseerr ──→ Radarr/Sonarr   (media requests — users request, *arr services fetch)
 Jellyfin                        (serves the downloaded media library)
+Shelfmark ──→ Prowlarr          (audiobook indexer search)
+Shelfmark ──→ qBittorrent       (audiobook download client)
+Audiobookshelf                  (serves the audiobook library)
 AdGuard Home                    (DNS rewriting: *.domain → Mac Mini LAN IP)
 Traefik                         (reverse proxy + TLS termination for all services)
 ```
 
 ### Network Topology
 
-All stacks share the `jellyfinnet` Docker network (`172.20.0.0/16`), enabling Traefik to route to any container by name.
+All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enabling Traefik to route to any container by name.
 
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.10`) and Sonarr (`172.20.0.11`) get static container IPs for stable inter-service communication.
@@ -44,14 +47,15 @@ All stacks share the `jellyfinnet` Docker network (`172.20.0.0/16`), enabling Tr
 
 ## Prerequisites
 
-| Requirement | Purpose |
-|-------------|---------|
-| Docker Desktop for Mac | Container runtime |
-| Python 3 + pip | Ansible and dependencies |
-| Ansible | Service configuration automation |
-| Cloudflare account + API token | DNS-01 challenge for TLS certificates |
-| VPN account (PIA) | Torrent traffic routing via Gluetun |
-| Domain name | Hostname-based routing for all services |
+| Requirement | Install | Purpose |
+|-------------|---------|---------|
+| Docker Desktop for Mac | [Download](https://www.docker.com/products/docker-desktop/) | Container runtime |
+| Homebrew | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` | macOS package manager |
+| Python 3 | `brew install python` | Ansible runtime |
+| Ansible | `pip3 install ansible` | Service configuration automation |
+| Cloudflare account | [Dashboard](https://dash.cloudflare.com/) | DNS-01 challenge for TLS certificates |
+| VPN account (PIA) | [Sign up](https://www.privateinternetaccess.com/) | Torrent traffic routing via Gluetun |
+| Domain name | Any registrar | Hostname-based routing for all services |
 
 ## Quick Start
 
@@ -64,25 +68,29 @@ make ansible-deps
 # 2. Generate credentials (interactive — prompts for user-provided values, auto-generates the rest)
 make generate-creds STACK=all
 
-# 3. Deploy all stacks (management → networking → media → automation)
+# 3. Create the shared Docker network
+docker network create --subnet=172.20.0.0/16 homelab-network
+
+# 4. Deploy all stacks (management → networking → media → automation)
 make deploy-all
 
-# 4. Complete Jellyfin setup wizard at http://localhost:8096
-#    (this is the one manual step — Jellyfin requires interactive setup)
+# 5. Complete post-deployment manual steps (see section below)
 
-# 5. Extract API keys from running containers
+# 6. Extract API keys from running containers
 make extract-keys
 
-# 6. Configure all services via their REST APIs
+# 7. Configure all services via their REST APIs
 make ansible-sync
 ```
 
-After step 6, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Jellyseerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
+After step 7, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Jellyseerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
 
 ### Deploy a single stack
 
 ```bash
-make deploy-media        # Media services with VPN
+make deploy-media        # Movies & TV only
+make deploy-audiobooks   # Audiobooks only
+make deploy-media-full   # All media services
 make deploy-management   # Portainer, Watchtower, Uptime Kuma, Dozzle
 make deploy-networking   # Traefik, AdGuard Home
 make deploy-automation   # Semaphore
@@ -92,16 +100,76 @@ make deploy-automation   # Semaphore
 
 | Target | Description |
 |--------|-------------|
-| `make deploy-media` | Start media stack with VPN profile |
+| `make deploy-media` | Start media stack (movies & TV profile) |
+| `make deploy-audiobooks` | Start media stack (audiobooks profile) |
+| `make deploy-media-full` | Start media stack (all profiles) |
 | `make deploy-management` | Start management stack |
 | `make deploy-networking` | Start networking stack |
 | `make deploy-automation` | Start automation stack |
 | `make deploy-all` | Start all stacks in dependency order |
+| `make down-all` | Stop all stacks in reverse dependency order |
 | `make ansible-deps` | Install Ansible Galaxy collections + Python dependencies (run once, or after changing `requirements.yml`) |
 | `make ansible-sync` | Run Ansible playbook to configure all services via REST APIs |
 | `make vault-edit` | Edit encrypted vault secrets |
 | `make generate-creds STACK=<name>` | Generate credentials for a stack (`common`, `networking`, `management`, `media`, `semaphore`, `all`) |
 | `make extract-keys` | Extract API keys from running *arr containers + prompt for Jellyseerr key |
+
+## Modular Deployment
+
+### Service profiles
+
+The media stack uses Docker Compose profiles to control which services start:
+
+| Profile | Services | Use case |
+|---------|----------|----------|
+| `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Radarr, Sonarr, Jellyfin, Jellyseerr, Recyclarr | Movies & TV |
+| `audiobooks` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Shelfmark, Audiobookshelf | Audiobooks |
+| `recommendarr` | Recommendarr | Optional AI-powered recommendations (add to `COMPOSE_PROFILES`) |
+
+Shared services (VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared) start with **either** `media` or `audiobooks` — they're in both profiles.
+
+```bash
+# Movies & TV only
+make deploy-media
+
+# Audiobooks only
+make deploy-audiobooks
+
+# Everything (movies, TV, and audiobooks)
+make deploy-media-full
+
+# Everything + Recommendarr
+cd docker-media-stack && COMPOSE_PROFILES=media,audiobooks,recommendarr docker compose up -d
+```
+
+### Stack independence
+
+Each stack can be deployed and torn down independently:
+
+```bash
+make deploy-networking   # Just Traefik + AdGuard
+make deploy-media        # Just media services
+# No need to deploy management or automation if you don't want monitoring/UI
+```
+
+## Post-Deployment Manual Steps
+
+These steps require manual interaction and cannot be automated:
+
+1. **Jellyfin setup wizard** — Complete initial setup at `http://localhost:8096` (creates admin user, configures media libraries)
+
+2. **Prowlarr indexer configuration** — Add indexers manually in Prowlarr's UI (`http://localhost:9696`). Indexers require account credentials, captchas, and session tokens that can't be automated. Prowlarr will automatically sync configured indexers to Sonarr/Radarr via `make ansible-sync`.
+
+3. **Shelfmark initial setup** (if using audiobooks profile):
+   - Connect to Prowlarr: `http://vpn:9696`
+   - Configure qBittorrent as download client: `http://vpn:5080`, category: `audiobooks`
+   - Set library paths for book organization
+
+4. **Audiobookshelf library setup** (if using audiobooks profile) — Add `/media/audiobooks` as the audiobook library folder in the Audiobookshelf UI (`http://localhost:13378`)
+
+5. **Recommendarr** (if using recommendarr profile) — Configure your AI service (OpenAI API key or Ollama endpoint) in the Recommendarr UI (`http://localhost:3000`)
+
+6. **Uptime Kuma cleanup** — If upgrading from a previous deployment, manually delete stale monitors (e.g., "LazyLibrarian") in the Uptime Kuma UI. The Ansible role creates monitors but does not delete them.
 
 ## Ansible Roles
 
@@ -110,7 +178,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | Role | What it configures | Key actions |
 |------|--------------------|-------------|
 | **env_files** | All stacks | Renders `.env.j2` templates from vault variables (always runs first) |
-| **qbittorrent** | qBittorrent | Sets download path, creates torrent categories (`tv-sonarr`, `radarr`) |
+| **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`) |
 | **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets |
 | **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist |
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
@@ -157,36 +225,6 @@ make ansible-sync                # env_files role runs first, then configures se
 | Domain name | User's registered domain |
 
 Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credentials, Semaphore admin password, database passwords) is auto-generated by `make generate-creds`.
-
-## Modular Deployment
-
-### Service groups
-
-The media stack uses Docker Compose profiles to control which services start:
-
-| Profile | Services | Use case |
-|---------|----------|----------|
-| `vpn` | All core services + VPN tunnel | Standard deployment — movies, TV, audiobooks |
-| `no-vpn` | Same services without VPN | Testing/development without VPN overhead |
-| `recommendarr` | Recommendarr only | Optional AI-powered recommendations (add to `COMPOSE_PROFILES`) |
-
-```bash
-# Standard deployment (VPN profile — used by make deploy-media)
-cd docker-media-stack && COMPOSE_PROFILES=vpn docker compose up -d
-
-# With Recommendarr
-cd docker-media-stack && COMPOSE_PROFILES=vpn,recommendarr docker compose up -d
-```
-
-### Stack independence
-
-Each stack can be deployed and torn down independently:
-
-```bash
-make deploy-networking   # Just Traefik + AdGuard
-make deploy-media        # Just media services
-# No need to deploy management or automation if you don't want monitoring/UI
-```
 
 ## Usage Scenarios
 
@@ -264,7 +302,7 @@ cd docker-media-stack && docker compose up -d
 **Symptom**: Connection refused between containers.
 
 **Check**:
-1. Are both services on the `jellyfinnet` network?
+1. Are both services on the `homelab-network` network?
 2. Is the target service VPN-namespaced? If so, use `vpn` as the hostname (not the container name)
 3. Are the ports correct? Some images change default ports between versions (e.g., Dozzle v10+ uses port 8080, not 9999)
 
@@ -311,7 +349,7 @@ Set it via: **Repository Settings → Secrets and variables → Actions → New 
 ```
 HomeLab/
 ├── docker-media-stack/
-│   ├── docker-compose.yml    # Jellyfin, *arr, qBittorrent, VPN, audiobooks
+│   ├── docker-compose.yml    # Jellyfin, *arr, qBittorrent, VPN, Shelfmark, Audiobookshelf
 │   ├── .env.j2               # Jinja2 template for .env
 │   └── .env.example          # Placeholder documentation
 ├── docker-management-stack/
@@ -335,7 +373,7 @@ HomeLab/
 │   │   └── vault.yml         # Encrypted secrets (ansible-vault)
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
-│       ├── qbittorrent/      # Download path, categories
+│       ├── qbittorrent/      # Download path, seeding time, categories
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders
 │       ├── radarr/           # Download client, root folders

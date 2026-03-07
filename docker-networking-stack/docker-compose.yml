@@ -20,7 +20,7 @@ services:
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedByDefault=false"
-      - "--providers.docker.network=jellyfinnet"
+      - "--providers.docker.network=homelab-network"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
@@ -39,7 +39,7 @@ services:
       - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
     networks:
-      - jellyfinnet
+      - homelab-network
 
   adguardhome:
     image: adguard/adguardhome:latest
@@ -55,7 +55,7 @@ services:
       - "8053:80"
       - "853:853/tcp"
     networks:
-      - jellyfinnet
+      - homelab-network
 
 volumes:
   traefik-certs:
@@ -63,5 +63,5 @@ volumes:
   adguard-conf:
 
 networks:
-  jellyfinnet:
+  homelab-network:
     external: true

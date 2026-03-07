@@ -22,11 +22,15 @@ adguard_dns_rewrites:
 
 # qBittorrent preferences
 qbittorrent_download_path: "/downloads"
+qbittorrent_max_seeding_time: 14400  # 10 days in minutes
+
 qbittorrent_categories:
   - name: "tv-sonarr"
     savePath: "/downloads/tvshows"
   - name: "radarr"
     savePath: "/downloads/movies"
+  - name: "audiobooks"
+    savePath: "/downloads/audiobooks"
 
 # Sonarr root folders
 sonarr_root_folders:
@@ -87,6 +91,6 @@ uptime_kuma_monitors:
   - name: "Audiobookshelf"
     type: http
     url: "http://localhost:13378"
-  - name: "LazyLibrarian"
+  - name: "Shelfmark"
     type: http
-    url: "http://localhost:5299"
+    url: "http://localhost:8084"

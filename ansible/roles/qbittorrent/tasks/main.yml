@@ -45,6 +45,18 @@
     status_code: 200
   when: qbt_prefs.json.save_path != qbittorrent_download_path
 
+- name: Set qBittorrent max seeding time
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/setPreferences"
+    method: POST
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    body_format: form-urlencoded
+    body:
+      json: '{"max_seeding_time": {{ qbittorrent_max_seeding_time }}}'
+    status_code: 200
+  when: qbt_prefs.json.max_seeding_time != qbittorrent_max_seeding_time
+
 - name: Get existing qBittorrent categories
   ansible.builtin.uri:
     url: "http://localhost:5080/api/v2/torrents/categories"
