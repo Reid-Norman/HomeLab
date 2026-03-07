@@ -1,7 +1,6 @@
 # Command to run with VPN and Recommendarr profiles:
 # COMPOSE_PROFILES=vpn,recommendarr docker compose up -d
 
-
 # version: "3.9"
 name: docker-media-stack
 services:
@@ -129,7 +128,6 @@ services:
       - TZ=${TZ}
     restart: unless-stopped
 
-
   # =================================== MOVIE/TV SERVICES ===================================
   radarr:
     profiles: ["vpn", "no-vpn"]
@@ -250,7 +248,6 @@ services:
       - "traefik.http.routers.recommendarr.entrypoints=websecure"
       - "traefik.http.routers.recommendarr.tls.certresolver=cloudflare"
       - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
-
 
   # =================================== AUDIOBOOK SERVICES ===================================
 
