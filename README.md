@@ -41,7 +41,7 @@ Traefik                         (reverse proxy + TLS termination for all service
 All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enabling Traefik to route to any container by name.
 
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
-- **Static IPs**: Radarr (`172.20.0.10`) and Sonarr (`172.20.0.11`) get static container IPs for stable inter-service communication.
+- **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
 - **DNS resolution**: AdGuard Home rewrites `*.domain` to the Mac Mini's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
 - **TLS**: Traefik obtains Let's Encrypt wildcard certificates via Cloudflare DNS-01 challenge.
 
