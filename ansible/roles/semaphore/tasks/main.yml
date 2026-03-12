@@ -30,7 +30,7 @@
         method: POST
         body_format: json
         body:
-          auth: "{{ vault_semaphore_admin }}"
+          auth: "{{ vault_semaphore_admin_user }}"
           password: "{{ vault_semaphore_admin_password }}"
         status_code: [200, 204]
       register: semaphore_login
