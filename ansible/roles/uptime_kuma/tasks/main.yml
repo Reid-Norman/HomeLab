@@ -64,8 +64,8 @@
 - name: Configure Telegram notifications
   when: telegram_configured
   block:
-    - name: Get existing notification providers
-      lucasheld.uptime_kuma.notification_provider_info:
+    - name: Get existing notifications
+      lucasheld.uptime_kuma.notification_info:
         api_url: "http://localhost:3001"
         api_username: "{{ vault_uptime_kuma_username }}"
         api_password: "{{ vault_uptime_kuma_password }}"
@@ -74,12 +74,12 @@
     - name: Check if Telegram notification already exists
       ansible.builtin.set_fact:
         telegram_exists: >-
-          {{ existing_notifications.notification_providers
+          {{ existing_notifications.notifications
              | selectattr('name', 'equalto', 'Telegram')
              | list | length > 0 }}
 
-    - name: Create Telegram notification provider
-      lucasheld.uptime_kuma.notification_provider:
+    - name: Create Telegram notification
+      lucasheld.uptime_kuma.notification:
         api_url: "http://localhost:3001"
         api_username: "{{ vault_uptime_kuma_username }}"
         api_password: "{{ vault_uptime_kuma_password }}"
