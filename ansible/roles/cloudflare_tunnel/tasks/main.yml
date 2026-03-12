@@ -1,0 +1,6 @@
+- name: Configure Cloudflare Tunnel
+  ansible.builtin.debug:
+    msg: >-
+      Cloudflare Tunnel runs via cloudflared container with a tunnel token.
+      DNS CNAME records and Access policies are managed in the Cloudflare dashboard.
+      No API configuration needed.

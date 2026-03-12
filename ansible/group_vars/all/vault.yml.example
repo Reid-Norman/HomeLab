@@ -27,8 +27,7 @@ vault_uptime_kuma_password: "REPLACE_UPTIME_KUMA_PASS"
 vault_vpn_service_provider: "pia"
 vault_openvpn_user: "REPLACE_VPN_USER"
 vault_openvpn_password: "REPLACE_VPN_PASSWORD"
-# User-provided: Cloudflare tunnel
-vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
+# (Cloudflare tunnel token removed — now uses locally-managed tunnel with credentials file)
 # Auto-generated
 qbittorrent_username: "REPLACE_QBT_USER"
 qbittorrent_password: "REPLACE_QBT_PASS"
@@ -42,6 +41,16 @@ vault_semaphore_admin_email: "REPLACE_ADMIN_EMAIL"
 vault_semaphore_admin_password: "REPLACE_SEMAPHORE_ADMIN_PASSWORD"
 vault_semaphore_db_password: "REPLACE_SEMAPHORE_DB_PASSWORD"
 
+# --- Telegram notifications (optional — generate-creds common) ---
+vault_telegram_bot_token: "REPLACE_TELEGRAM_BOT_TOKEN"
+vault_telegram_chat_id: "REPLACE_TELEGRAM_CHAT_ID"
+
+# --- Cloudflare Tunnel (generate-creds media) ---
+vault_cloudflare_tunnel_id: "REPLACE_TUNNEL_UUID"
+vault_cloudflare_tunnel_credentials: "REPLACE_TUNNEL_CREDENTIALS_JSON"
+vault_cloudflare_account_id: "REPLACE_CLOUDFLARE_ACCOUNT_ID"
+vault_cloudflare_zone_id: "REPLACE_CLOUDFLARE_ZONE_ID"
+
 # --- Post-deployment (extract-api-keys.sh) ---
 # Extracted from running containers after first deploy
 radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
@@ -51,3 +60,4 @@ prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
 vault_jellyfin_username: "REPLACE_JELLYFIN_USER"
 vault_jellyfin_email: "REPLACE_JELLYFIN_EMAIL"
 vault_jellyfin_password: "REPLACE_JELLYFIN_PASS"
+vault_jellyfin_api_key: "REPLACE_JELLYFIN_API_KEY"

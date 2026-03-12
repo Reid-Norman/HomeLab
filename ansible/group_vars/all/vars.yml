@@ -6,7 +6,7 @@ networking_stack_path: "{{ docker_compose_root }}/docker-networking-stack"
 automation_stack_path: "{{ docker_compose_root }}/docker-automation-stack"
 
 # Networking
-mac_mini_lan_ip: "{{ vault_server_ip }}"
+server_lan_ip: "{{ vault_server_ip }}"
 
 # Static container IPs (must match docker-compose.yml assignments)
 sonarr_static_ip: "172.20.0.201"
@@ -18,7 +18,7 @@ prowlarr_url: "http://vpn:9696"
 # AdGuard DNS rewrites (wildcard covers all subdomains)
 adguard_dns_rewrites:
   - domain: "*.{{ vault_domain }}"
-    answer: "{{ mac_mini_lan_ip }}"
+    answer: "{{ server_lan_ip }}"
 
 # qBittorrent preferences
 qbittorrent_download_path: "/downloads"
@@ -52,45 +52,85 @@ prowlarr_applications:
     baseUrl: "http://{{ radarr_static_ip }}:7878"
     apiKey: "{{ radarr_api_key }}"
 
-# Uptime Kuma monitors
+# Jellyfin plugin repositories (third-party repos to add)
+jellyfin_plugin_repos:
+  - Name: "Intro Skipper"
+    Url: "https://raw.githubusercontent.com/intro-skipper/intro-skipper/master/manifest.json"
+    Enabled: true
+
+# Jellyfin plugins to install
+jellyfin_plugins:
+  - name: "Intro Skipper"
+  - name: "Fanart"
+
+# Cloudflare Tunnel subdomains (CNAME records pointing to tunnel)
+cloudflare_tunnel_subdomains:
+  - jellyfin
+  - sonarr
+  - radarr
+  - prowlarr
+  - qbittorrent
+  - jellyseerr
+  - audiobookshelf
+  - shelfmark
+  - recommendarr
+  - portainer
+  - uptime-kuma
+  - dozzle
+  - semaphore
+  - traefik
+
+# Cloudflare Access allowed emails
+cloudflare_access_allowed_emails:
+  - "{{ vault_le_email }}"
+
+# Uptime Kuma Telegram notifications
+uptime_kuma_telegram_enabled: true
+
+# Semaphore project configuration
+semaphore_project_name: "HomeLab"
+semaphore_repo_url: "https://github.com/Reid-Norman/HomeLab.git"
+
+# Uptime Kuma monitors (use container names for internal Docker network resolution)
+# VPN-namespaced services (qBittorrent, Prowlarr) use "vpn" as hostname
 uptime_kuma_monitors:
   - name: "Jellyfin"
     type: http
-    url: "http://localhost:8096"
+    url: "http://jellyfin:8096"
   - name: "Sonarr"
     type: http
-    url: "http://localhost:8989"
+    url: "http://sonarr:8989"
   - name: "Radarr"
     type: http
-    url: "http://localhost:7878"
+    url: "http://radarr:7878"
   - name: "Prowlarr"
     type: http
-    url: "http://localhost:9696"
+    url: "http://vpn:9696"
   - name: "qBittorrent"
     type: http
-    url: "http://localhost:5080"
+    url: "http://vpn:5080"
   - name: "Jellyseerr"
     type: http
-    url: "http://localhost:5055"
+    url: "http://jellyseerr:5055"
   - name: "AdGuard Home"
     type: http
-    url: "http://localhost:8053"
+    url: "http://adguardhome:80"
   - name: "Traefik"
     type: http
-    url: "http://localhost:80"
+    url: "http://traefik:80"
     maxretries: 1
   - name: "Portainer"
     type: http
-    url: "http://localhost:9000"
+    url: "http://portainer:9000"
   - name: "Semaphore"
     type: http
-    url: "http://localhost:3010/api/ping"
+    url: "http://semaphore:3000/api/ping"
   - name: "Dozzle"
     type: http
-    url: "http://localhost:9999"
+    url: "http://dozzle:8080"
   - name: "Audiobookshelf"
     type: http
-    url: "http://localhost:13378"
+    url: "http://audiobookshelf:80"
   - name: "Shelfmark"
     type: http
-    url: "http://localhost:8084"
+    url: "http://shelfmark:8084"

@@ -1,0 +1,70 @@
+- name: Wait for Semaphore API
+  ansible.builtin.uri:
+    url: "http://semaphore:3000/api/ping"
+    method: GET
+    status_code: 200
+  register: semaphore_health
+  retries: 12
+  delay: 10
+  until: semaphore_health.status == 200
+
+- name: Check if Semaphore credentials are available
+  ansible.builtin.set_fact:
+    semaphore_has_creds: >-
+      {{ (vault_semaphore_admin_password | default('') | length > 0)
+         and not (vault_semaphore_admin_password | default('') is match('REPLACE_.*')) }}
+
+- name: Skip if Semaphore credentials not available
+  ansible.builtin.debug:
+    msg: >-
+      Semaphore project configuration skipped — no admin credentials in vault.
+      Run 'make generate-creds STACK=automation' and 'make ansible-sync'.
+  when: not semaphore_has_creds
+
+- name: Configure Semaphore
+  when: semaphore_has_creds
+  block:
+    - name: Authenticate to Semaphore
+      ansible.builtin.uri:
+        url: "http://semaphore:3000/api/auth/login"
+        method: POST
+        body_format: json
+        body:
+          auth: "{{ vault_semaphore_admin }}"
+          password: "{{ vault_semaphore_admin_password }}"
+        status_code: [200, 204]
+      register: semaphore_login
+      no_log: true
+
+    - name: Extract Semaphore auth cookie
+      ansible.builtin.set_fact:
+        semaphore_cookie: "{{ semaphore_login.cookies_string }}"
+
+    - name: Get existing projects
+      ansible.builtin.uri:
+        url: "http://semaphore:3000/api/projects"
+        method: GET
+        headers:
+          Cookie: "{{ semaphore_cookie }}"
+        status_code: 200
+      register: semaphore_projects
+
+    - name: Extract existing project names
+      ansible.builtin.set_fact:
+        semaphore_project_names: >-
+          {{ semaphore_projects.json | map(attribute='name') | list }}
+
+    - name: Create HomeLab project
+      ansible.builtin.uri:
+        url: "http://semaphore:3000/api/projects"
+        method: POST
+        headers:
+          Cookie: "{{ semaphore_cookie }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ semaphore_project_name }}"
+          alert: false
+          max_parallel_tasks: 0
+        status_code: [200, 201]
+      when: semaphore_project_name not in semaphore_project_names

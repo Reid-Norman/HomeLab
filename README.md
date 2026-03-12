@@ -1,11 +1,11 @@
 # HomeLab
 
-Self-hosted media and infrastructure automation for a Mac Mini. Docker Compose provisions containers; Ansible configures services via their REST APIs. All secrets live in Ansible Vault — nothing is manually configured that can be automated.
+Self-hosted media and infrastructure automation. Docker Compose provisions containers; Ansible configures services via their REST APIs. All secrets live in Ansible Vault — nothing is manually configured that can be automated.
 
 ## Design Principles
 
 - **Maximize automation, minimize interaction** — the challenge is automating as much as possible. Human input is only required where unavoidable (initial VPN credentials, Cloudflare tokens, Jellyfin setup wizard). Everything else is scripted via `make` targets and Ansible API calls.
-- **Reproducibility** — a fresh Mac Mini should reach full functionality from `make deploy-all && make ansible-sync`.
+- **Reproducibility** — a fresh server should reach full functionality from `make deploy-all && make ansible-sync`.
 - **Modularity** — services are grouped by purpose (media streaming, audiobooks, management, networking). Deploy only what you need via Docker Compose profiles and selective `make` targets. Not everyone wants audiobooks; not everyone needs Recommendarr.
 - **Secrets as code** — all credentials live in Ansible Vault. `.env` files are generated artifacts, never edited by hand.
 - **Idempotency** — every command is safe to re-run. `make ansible-sync` only changes what's needed.
@@ -32,7 +32,7 @@ Jellyfin                        (serves the downloaded media library)
 Shelfmark ──→ Prowlarr          (audiobook indexer search)
 Shelfmark ──→ qBittorrent       (audiobook download client)
 Audiobookshelf                  (serves the audiobook library)
-AdGuard Home                    (DNS rewriting: *.domain → Mac Mini LAN IP)
+AdGuard Home                    (DNS rewriting: *.domain → server LAN IP)
 Traefik                         (reverse proxy + TLS termination for all services)
 ```
 
@@ -42,20 +42,21 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
-- **DNS resolution**: AdGuard Home rewrites `*.domain` to the Mac Mini's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
+- **DNS resolution**: AdGuard Home rewrites `*.domain` to the server's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
 - **TLS**: Traefik obtains Let's Encrypt wildcard certificates via Cloudflare DNS-01 challenge.
 
 ## Prerequisites
 
 | Requirement | Install | Purpose |
 |-------------|---------|---------|
-| Docker Desktop for Mac | [Download](https://www.docker.com/products/docker-desktop/) | Container runtime |
-| Homebrew | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` | macOS package manager |
-| Python 3 | `brew install python` | Ansible runtime |
+| Docker / Docker Compose | [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux) | Container runtime |
+| Python 3 | `brew install python` (macOS) or `apt install python3` (Linux) | Ansible runtime |
 | Ansible | `pip3 install ansible` | Service configuration automation |
 | Cloudflare account | [Dashboard](https://dash.cloudflare.com/) | DNS-01 challenge for TLS certificates |
 | VPN account (PIA) | [Sign up](https://www.privateinternetaccess.com/) | Torrent traffic routing via Gluetun |
 | Domain name | Any registrar | Hostname-based routing for all services |
+
+> **Note**: This project was developed on macOS with Docker Desktop. On Linux, you may need to adjust the Docker socket path and ensure `/dev/net/tun` is available for the VPN container.
 
 ## Quick Start
 

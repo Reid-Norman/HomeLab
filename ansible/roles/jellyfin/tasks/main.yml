@@ -1,0 +1,113 @@
+- name: Wait for Jellyfin API
+  ansible.builtin.uri:
+    url: "http://jellyfin:8096/System/Info/Public"
+    method: GET
+    status_code: 200
+  register: jellyfin_health
+  retries: 12
+  delay: 10
+  until: jellyfin_health.status == 200
+
+- name: Check if Jellyfin API key is available
+  ansible.builtin.set_fact:
+    jellyfin_has_api_key: >-
+      {{ (vault_jellyfin_api_key | default('') | length > 0)
+         and not (vault_jellyfin_api_key | default('') is match('REPLACE_.*')) }}
+
+- name: Skip if Jellyfin API key not available
+  ansible.builtin.debug:
+    msg: >-
+      Jellyfin plugin configuration skipped — no API key in vault.
+      Complete the Jellyfin setup wizard, then run 'make extract-keys' and 'make ansible-sync'.
+  when: not jellyfin_has_api_key
+
+- name: Configure Jellyfin plugins
+  when: jellyfin_has_api_key
+  block:
+    - name: Get existing plugin repositories
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/Repositories"
+        method: GET
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: 200
+      register: jellyfin_repos
+
+    - name: Extract existing repo URLs
+      ansible.builtin.set_fact:
+        existing_repo_urls: >-
+          {{ jellyfin_repos.json | map(attribute='Url') | list }}
+
+    - name: Add missing plugin repositories
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/Repositories"
+        method: POST
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+          Content-Type: "application/json"
+        body_format: json
+        body: >-
+          {{ jellyfin_repos.json + [item] }}
+        status_code: [200, 204]
+      loop: "{{ jellyfin_plugin_repos }}"
+      when: item.Url not in existing_repo_urls
+      register: repo_added
+
+    - name: Get installed plugins
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/Plugins"
+        method: GET
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: 200
+      register: jellyfin_installed_plugins
+
+    - name: Extract installed plugin names
+      ansible.builtin.set_fact:
+        installed_plugin_names: >-
+          {{ jellyfin_installed_plugins.json | map(attribute='Name') | list }}
+
+    - name: Get available packages
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/Packages"
+        method: GET
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: 200
+      register: jellyfin_packages
+
+    - name: Install missing plugins
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/Packages/Installed/{{ item.name | urlencode }}"
+        method: POST
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: [200, 204]
+      loop: "{{ jellyfin_plugins }}"
+      when: item.name not in installed_plugin_names
+      register: plugins_installed
+
+    - name: Check if Jellyfin restart is needed
+      ansible.builtin.set_fact:
+        jellyfin_needs_restart: >-
+          {{ plugins_installed.results | default([]) | selectattr('changed', 'defined') | selectattr('changed') | list | length > 0 }}
+
+    - name: Restart Jellyfin to activate plugins
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/System/Restart"
+        method: POST
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: [200, 204]
+      when: jellyfin_needs_restart
+
+    - name: Wait for Jellyfin to come back up after restart
+      ansible.builtin.uri:
+        url: "http://jellyfin:8096/System/Info/Public"
+        method: GET
+        status_code: 200
+      register: jellyfin_restart_health
+      retries: 12
+      delay: 10
+      until: jellyfin_restart_health.status == 200
+      when: jellyfin_needs_restart

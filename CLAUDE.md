@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Self-hosted media infrastructure automation for a Mac Mini. Docker Compose handles container provisioning; Ansible handles post-deployment configuration via REST API calls. Secrets live in Ansible Vault, never in plaintext.
+Self-hosted media infrastructure automation. Docker Compose handles container provisioning; Ansible handles post-deployment configuration via REST API calls. Secrets live in Ansible Vault, never in plaintext. Developed on macOS with Docker Desktop but adaptable to any Docker host.
 
 ## Repository Layout
 
@@ -59,7 +59,7 @@ cd docker-media-stack && docker compose up -d
 - **Shared network:** All stacks share the `homelab-network` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
 - **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, entrypoint, certresolver, and loadbalancer port. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
-- **Hostname-based access:** All services accessed via `*.hightechlowlife.ca` — AdGuard provides DNS rewriting, Traefik handles reverse proxy + TLS via Let's Encrypt wildcard certs (Cloudflare DNS-01 challenge).
+- **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via Let's Encrypt wildcard certs (Cloudflare DNS-01 challenge).
 
 ## Key Service Relationships
 
@@ -71,7 +71,7 @@ Jellyfin  (serves media library)
 Shelfmark → Prowlarr  (audiobook indexer search)
 Shelfmark → qBittorrent  (audiobook download client)
 Audiobookshelf  (serves audiobook library)
-AdGuard Home  (DNS rewriting for *.hightechlowlife.ca)
+AdGuard Home  (DNS rewriting for *.domain → server LAN IP)
 Traefik  (reverse proxy + TLS termination)
 ```
 

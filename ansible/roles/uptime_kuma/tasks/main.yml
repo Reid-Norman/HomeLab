@@ -49,3 +49,45 @@
     state: present
   loop: "{{ uptime_kuma_monitors }}"
   when: item.name not in existing_monitor_names
+
+# --- Telegram notification setup ---
+
+- name: Check if Telegram notifications are configured
+  ansible.builtin.set_fact:
+    telegram_configured: >-
+      {{ uptime_kuma_telegram_enabled | default(false)
+         and (vault_telegram_bot_token | default('') | length > 0)
+         and not (vault_telegram_bot_token | default('') is match('REPLACE_.*'))
+         and (vault_telegram_chat_id | default('') | length > 0)
+         and not (vault_telegram_chat_id | default('') is match('REPLACE_.*')) }}
+
+- name: Configure Telegram notifications
+  when: telegram_configured
+  block:
+    - name: Get existing notification providers
+      lucasheld.uptime_kuma.notification_provider_info:
+        api_url: "http://localhost:3001"
+        api_username: "{{ vault_uptime_kuma_username }}"
+        api_password: "{{ vault_uptime_kuma_password }}"
+      register: existing_notifications
+
+    - name: Check if Telegram notification already exists
+      ansible.builtin.set_fact:
+        telegram_exists: >-
+          {{ existing_notifications.notification_providers
+             | selectattr('name', 'equalto', 'Telegram')
+             | list | length > 0 }}
+
+    - name: Create Telegram notification provider
+      lucasheld.uptime_kuma.notification_provider:
+        api_url: "http://localhost:3001"
+        api_username: "{{ vault_uptime_kuma_username }}"
+        api_password: "{{ vault_uptime_kuma_password }}"
+        name: "Telegram"
+        type: "telegram"
+        isDefault: true
+        telegramBotToken: "{{ vault_telegram_bot_token }}"
+        telegramChatID: "{{ vault_telegram_chat_id }}"
+        state: present
+      when: not telegram_exists
+      no_log: true

@@ -6,12 +6,15 @@
     - group_vars/all/vault.yml
   roles:
     - role: env_files
+    - role: cloudflare_tunnel
     - role: qbittorrent
     - role: prowlarr
     - role: sonarr
     - role: radarr
+    - role: jellyfin
     - role: jellyseerr
     - role: recyclarr
     - role: adguard
     - role: traefik
     - role: uptime_kuma
+    - role: semaphore
