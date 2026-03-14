@@ -1,6 +1,6 @@
 - name: Wait for Semaphore API
   ansible.builtin.uri:
-    url: "http://semaphore:3000/api/ping"
+    url: "http://localhost:3010/api/ping"
     method: GET
     status_code: 200
   register: semaphore_health
@@ -26,7 +26,7 @@
   block:
     - name: Authenticate to Semaphore
       ansible.builtin.uri:
-        url: "http://semaphore:3000/api/auth/login"
+        url: "http://localhost:3010/api/auth/login"
         method: POST
         body_format: json
         body:
@@ -42,7 +42,7 @@
 
     - name: Get existing projects
       ansible.builtin.uri:
-        url: "http://semaphore:3000/api/projects"
+        url: "http://localhost:3010/api/projects"
         method: GET
         headers:
           Cookie: "{{ semaphore_cookie }}"
@@ -56,7 +56,7 @@
 
     - name: Create HomeLab project
       ansible.builtin.uri:
-        url: "http://semaphore:3000/api/projects"
+        url: "http://localhost:3010/api/projects"
         method: POST
         headers:
           Cookie: "{{ semaphore_cookie }}"

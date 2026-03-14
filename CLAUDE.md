@@ -15,7 +15,7 @@ Four independent Docker Compose stacks at the repo root, each with its own `dock
 - **docker-networking-stack/** — Traefik, AdGuard Home
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, qbittorrent, prowlarr, sonarr, radarr, jellyseerr, recyclarr, adguard, traefik, uptime_kuma. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, qbittorrent, prowlarr, sonarr, radarr, jellyfin, jellyseerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -97,6 +97,8 @@ Traefik  (reverse proxy + TLS termination)
 ## When Modifying Ansible
 
 - Roles target `localhost` with `connection: local` and `gather_facts: false`
+- **Ansible runs on the host, not inside Docker** — role API calls must use `localhost` with the host-mapped port (e.g., `http://localhost:8096` for Jellyfin, `http://localhost:3010` for Semaphore), never container hostnames like `http://jellyfin:8096`
+- Uptime Kuma monitors run *inside* Docker and should use container hostnames (e.g., `http://jellyfin:8096`) — the opposite of Ansible roles
 - Vault file is encrypted with `ansible-vault` — use `make vault-edit` to modify
 - Collections (`community.general`, `lucasheld.uptime_kuma`) are listed in `ansible/requirements.yml` — install with `make ansible-deps` (not run automatically by `ansible-sync` to avoid network hits on every run)
 - The `env_files` role must always run first in `site.yml`
