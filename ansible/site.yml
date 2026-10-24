@@ -12,7 +12,7 @@
     - role: sonarr
     - role: radarr
     - role: jellyfin
-    - role: jellyseerr
+    - role: seerr
     - role: recyclarr
     - role: adguard
     - role: traefik

@@ -246,7 +246,7 @@ generate_management() {
 
 generate_media() {
     echo ""
-    echo "=== Media Stack (VPN + qBittorrent + Jellyseerr + Cloudflare Tunnel) ==="
+    echo "=== Media Stack (VPN + qBittorrent + Seerr + Cloudflare Tunnel) ==="
     echo ""
 
     # VPN credentials (user-provided)
@@ -289,7 +289,7 @@ generate_media() {
         echo "  qBittorrent credentials: (exist, skipping)"
     fi
 
-    # Jellyfin admin (used by Jellyseerr role + future Jellyfin role)
+    # Jellyfin admin (used by Seerr role + future Jellyfin role)
     if var_needs_value vault_jellyfin_username; then
         echo ""
         echo "  Jellyfin admin credentials:"

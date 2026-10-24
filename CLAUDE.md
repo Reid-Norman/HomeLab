@@ -10,12 +10,12 @@ Self-hosted media infrastructure automation. Docker Compose handles container pr
 
 Four independent Docker Compose stacks at the repo root, each with its own `docker-compose.yml`, `.env.example`, and `.env.j2` (Ansible Jinja2 template):
 
-- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf
+- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-management-stack/** — Portainer, Watchtower, Uptime Kuma, Dozzle
 - **docker-networking-stack/** — Traefik, AdGuard Home
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, qbittorrent, prowlarr, sonarr, radarr, jellyfin, jellyseerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -66,7 +66,7 @@ cd docker-media-stack && docker compose up -d
 ```
 Prowlarr → Radarr/Sonarr  (indexer sync)
 Radarr/Sonarr → qBittorrent  (download client)
-Jellyseerr → Radarr/Sonarr  (media requests)
+Seerr → Radarr/Sonarr  (media requests; successor to Jellyseerr)
 Jellyfin  (serves media library)
 Shelfmark → Prowlarr  (audiobook indexer search)
 Shelfmark → qBittorrent  (audiobook download client)
@@ -98,6 +98,7 @@ Traefik  (reverse proxy + TLS termination)
 
 - Roles target `localhost` with `connection: local` and `gather_facts: false`
 - **Ansible runs on the host, not inside Docker** — role API calls must use `localhost` with the host-mapped port (e.g., `http://localhost:8096` for Jellyfin, `http://localhost:3010` for Semaphore), never container hostnames like `http://jellyfin:8096`
+- Renamed/removed services: add the old monitor name to `uptime_kuma_retired_monitors` in vars.yml so the uptime_kuma role deletes it
 - Uptime Kuma monitors run *inside* Docker and should use container hostnames (e.g., `http://jellyfin:8096`) — the opposite of Ansible roles
 - Vault file is encrypted with `ansible-vault` — use `make vault-edit` to modify
 - Collections (`community.general`, `lucasheld.uptime_kuma`) are listed in `ansible/requirements.yml` — install with `make ansible-deps` (not run automatically by `ansible-sync` to avoid network hits on every run)

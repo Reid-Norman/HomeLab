@@ -70,7 +70,8 @@ cloudflare_tunnel_subdomains:
   - radarr
   - prowlarr
   - qbittorrent
-  - jellyseerr
+  - seerr
+  - jellyseerr  # legacy hostname, still routed to Seerr
   - audiobookshelf
   - shelfmark
   - recommendarr
@@ -109,9 +110,9 @@ uptime_kuma_monitors:
   - name: "qBittorrent"
     type: http
     url: "http://vpn:5080"
-  - name: "Jellyseerr"
+  - name: "Seerr"
     type: http
-    url: "http://jellyseerr:5055"
+    url: "http://seerr:5055"
   - name: "AdGuard Home"
     type: http
     url: "http://adguardhome:80"
@@ -134,3 +135,7 @@ uptime_kuma_monitors:
   - name: "Shelfmark"
     type: http
     url: "http://shelfmark:8084"
+
+# Monitors removed from Uptime Kuma when present (renamed or retired services)
+uptime_kuma_retired_monitors:
+  - "Jellyseerr"  # replaced by "Seerr"

@@ -56,7 +56,7 @@ vault_cloudflare_zone_id: "REPLACE_CLOUDFLARE_ZONE_ID"
 radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
 sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
 prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
-# Jellyfin admin (user-provided: used by Jellyseerr role + future Jellyfin role)
+# Jellyfin admin (user-provided: used by Seerr role + future Jellyfin role)
 vault_jellyfin_username: "REPLACE_JELLYFIN_USER"
 vault_jellyfin_email: "REPLACE_JELLYFIN_EMAIL"
 vault_jellyfin_password: "REPLACE_JELLYFIN_PASS"

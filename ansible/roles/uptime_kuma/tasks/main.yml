@@ -50,6 +50,16 @@
   loop: "{{ uptime_kuma_monitors }}"
   when: item.name not in existing_monitor_names
 
+- name: Remove retired Uptime Kuma monitors
+  lucasheld.uptime_kuma.monitor:
+    api_url: "http://localhost:3001"
+    api_username: "{{ vault_uptime_kuma_username }}"
+    api_password: "{{ vault_uptime_kuma_password }}"
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ uptime_kuma_retired_monitors | default([]) }}"
+  when: item in existing_monitor_names
+
 # --- Telegram notification setup ---
 
 - name: Check if Telegram notifications are configured

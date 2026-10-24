@@ -8,6 +8,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history: gitleaks scans the PR commit range
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,5 +48,6 @@ jobs:
       - name: Secrets Scan
         uses: zricethezav/gitleaks-action@v2
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # required to scan pull requests
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           GITLEAKS_ENABLE_COMMENTS: false
