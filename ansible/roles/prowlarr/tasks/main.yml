@@ -47,4 +47,8 @@
           value: []
     status_code: [200, 201]
   loop: "{{ prowlarr_applications }}"
+  # Items contain API keys — print only the app name, hide request/response
+  loop_control:
+    label: "{{ item.name }}"
   when: item.name not in prowlarr_existing_app_names
+  no_log: true
