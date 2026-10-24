@@ -16,9 +16,21 @@
     body:
       username: "{{ qbittorrent_username }}"
       password: "{{ qbittorrent_password }}"
-    status_code: 200
+    # qBittorrent 5.2+ returns 204 on success (older versions: 200 "Ok.")
+    status_code: [200, 204]
   register: qbt_login
   no_log: true
+
+# Older versions return 200 "Fails." on bad credentials, so status alone
+# doesn't prove success — a SID session cookie does
+- name: Verify qBittorrent login succeeded
+  ansible.builtin.assert:
+    that: "'SID' in (qbt_login.cookies | default({}))"
+    fail_msg: >-
+      qBittorrent login failed (no session cookie). Check that
+      qbittorrent_username/qbittorrent_password in the vault match the WebUI,
+      and that the IP isn't banned after repeated failures.
+    quiet: true
 
 - name: Set qBittorrent session cookie
   ansible.builtin.set_fact:
@@ -42,7 +54,7 @@
     body_format: form-urlencoded
     body:
       json: '{"save_path": "{{ qbittorrent_download_path }}"}'
-    status_code: 200
+    status_code: [200, 204]
   when: qbt_prefs.json.save_path != qbittorrent_download_path
 
 - name: Set qBittorrent max seeding time
@@ -54,7 +66,7 @@
     body_format: form-urlencoded
     body:
       json: '{"max_seeding_time": {{ qbittorrent_max_seeding_time }}}'
-    status_code: 200
+    status_code: [200, 204]
   when: qbt_prefs.json.max_seeding_time != qbittorrent_max_seeding_time
 
 - name: Get existing qBittorrent categories
@@ -76,6 +88,6 @@
     body:
       category: "{{ item.name }}"
       savePath: "{{ item.savePath }}"
-    status_code: 200
+    status_code: [200, 204]
   loop: "{{ qbittorrent_categories }}"
   when: item.name not in qbt_categories.json
