@@ -1,44 +1,44 @@
-- name: Wait for Jellyseerr API
+- name: Wait for Seerr API
   ansible.builtin.uri:
     url: "http://localhost:5055/api/v1/status"
     method: GET
     status_code: 200
-  register: jellyseerr_health
+  register: seerr_health
   retries: 12
   delay: 10
-  until: jellyseerr_health.status == 200
+  until: seerr_health.status == 200
 
-- name: Check Jellyseerr initialization status
+- name: Check Seerr initialization status
   ansible.builtin.uri:
     url: "http://localhost:5055/api/v1/settings/public"
     method: GET
     status_code: 200
-  register: jellyseerr_public
+  register: seerr_public
 
-- name: Check if Jellyseerr is ready for configuration
+- name: Check if Seerr is ready for configuration
   ansible.builtin.set_fact:
-    jellyseerr_ready: >-
-      {{ (jellyseerr_public.json.initialized | default(false))
+    seerr_ready: >-
+      {{ (seerr_public.json.initialized | default(false))
          and (vault_jellyfin_username | default('') | length > 0)
          and not (vault_jellyfin_username | default('') is match('REPLACE_.*'))
          and (vault_jellyfin_password | default('') | length > 0)
          and not (vault_jellyfin_password | default('') is match('REPLACE_.*')) }}
 
-- name: Skip if Jellyseerr not ready
+- name: Skip if Seerr not ready
   ansible.builtin.debug:
     msg: >-
-      Jellyseerr skipped —
-      {% if not (jellyseerr_public.json.initialized | default(false)) %}
+      Seerr skipped —
+      {% if not (seerr_public.json.initialized | default(false)) %}
       setup wizard not completed. Visit http://localhost:5055 first.
       {% else %}
       Jellyfin credentials not in vault. Run 'make generate-creds STACK=media'.
       {% endif %}
-  when: not jellyseerr_ready
+  when: not seerr_ready
 
-- name: Configure Jellyseerr
-  when: jellyseerr_ready
+- name: Configure Seerr
+  when: seerr_ready
   block:
-    - name: Login to Jellyseerr via Jellyfin
+    - name: Login to Seerr via Jellyfin
       ansible.builtin.uri:
         url: "http://localhost:5055/api/v1/auth/jellyfin"
         method: POST
@@ -47,28 +47,28 @@
           username: "{{ vault_jellyfin_username }}"
           password: "{{ vault_jellyfin_password }}"
         status_code: 200
-      register: jellyseerr_login
+      register: seerr_login
       no_log: true
 
-    - name: Set Jellyseerr session cookie
+    - name: Set Seerr session cookie
       ansible.builtin.set_fact:
-        jellyseerr_cookie: "{{ jellyseerr_login.cookies_string }}"
+        seerr_cookie: "{{ seerr_login.cookies_string }}"
 
-    - name: Get existing Jellyseerr Radarr settings
+    - name: Get existing Seerr Radarr settings
       ansible.builtin.uri:
         url: "http://localhost:5055/api/v1/settings/radarr"
         method: GET
         headers:
-          Cookie: "{{ jellyseerr_cookie }}"
+          Cookie: "{{ seerr_cookie }}"
         status_code: 200
-      register: jellyseerr_radarr
+      register: seerr_radarr
 
-    - name: Add Radarr to Jellyseerr
+    - name: Add Radarr to Seerr
       ansible.builtin.uri:
         url: "http://localhost:5055/api/v1/settings/radarr"
         method: POST
         headers:
-          Cookie: "{{ jellyseerr_cookie }}"
+          Cookie: "{{ seerr_cookie }}"
         body_format: json
         body:
           name: "Radarr"
@@ -82,23 +82,23 @@
           minimumAvailability: "released"
           isDefault: true
         status_code: [200, 201]
-      when: jellyseerr_radarr.json | length == 0
+      when: seerr_radarr.json | length == 0
 
-    - name: Get existing Jellyseerr Sonarr settings
+    - name: Get existing Seerr Sonarr settings
       ansible.builtin.uri:
         url: "http://localhost:5055/api/v1/settings/sonarr"
         method: GET
         headers:
-          Cookie: "{{ jellyseerr_cookie }}"
+          Cookie: "{{ seerr_cookie }}"
         status_code: 200
-      register: jellyseerr_sonarr
+      register: seerr_sonarr
 
-    - name: Add Sonarr to Jellyseerr
+    - name: Add Sonarr to Seerr
       ansible.builtin.uri:
         url: "http://localhost:5055/api/v1/settings/sonarr"
         method: POST
         headers:
-          Cookie: "{{ jellyseerr_cookie }}"
+          Cookie: "{{ seerr_cookie }}"
         body_format: json
         body:
           name: "Sonarr"
@@ -114,4 +114,4 @@
           enableSeasonFolders: true
           isDefault: true
         status_code: [200, 201]
-      when: jellyseerr_sonarr.json | length == 0
+      when: seerr_sonarr.json | length == 0
