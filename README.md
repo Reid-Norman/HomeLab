@@ -17,7 +17,7 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 
 | Stack | Services | Purpose |
 |-------|----------|---------|
-| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Jellyseerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
+| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
 | **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Container management, monitoring, and auto-updates |
 | **docker-networking-stack** | Traefik, AdGuard Home | Reverse proxy, TLS termination, DNS rewriting |
 | **docker-automation-stack** | Semaphore | Ansible UI for running playbooks from a browser |
@@ -27,7 +27,7 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 ```
 Prowlarr ──→ Radarr/Sonarr     (indexer sync — Prowlarr pushes indexers to both)
 Radarr/Sonarr ──→ qBittorrent  (download client — sends torrents for downloading)
-Jellyseerr ──→ Radarr/Sonarr   (media requests — users request, *arr services fetch)
+Seerr ──→ Radarr/Sonarr        (media requests — users request, *arr services fetch)
 Jellyfin                        (serves the downloaded media library)
 Shelfmark ──→ Prowlarr          (audiobook indexer search)
 Shelfmark ──→ qBittorrent       (audiobook download client)
@@ -84,7 +84,7 @@ make extract-keys
 make ansible-sync
 ```
 
-After step 7, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Jellyseerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
+After step 7, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Seerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
 
 ### Deploy a single stack
 
@@ -113,7 +113,7 @@ make deploy-automation   # Semaphore
 | `make ansible-sync` | Run Ansible playbook to configure all services via REST APIs |
 | `make vault-edit` | Edit encrypted vault secrets |
 | `make generate-creds STACK=<name>` | Generate credentials for a stack (`common`, `networking`, `management`, `media`, `semaphore`, `all`) |
-| `make extract-keys` | Extract API keys from running *arr containers + prompt for Jellyseerr key |
+| `make extract-keys` | Extract API keys from running Radarr, Sonarr, and Prowlarr containers into the vault |
 
 ## Modular Deployment
 
@@ -123,7 +123,7 @@ The media stack uses Docker Compose profiles to control which services start:
 
 | Profile | Services | Use case |
 |---------|----------|----------|
-| `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Radarr, Sonarr, Jellyfin, Jellyseerr, Recyclarr | Movies & TV |
+| `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Radarr, Sonarr, Jellyfin, Seerr, Recyclarr | Movies & TV |
 | `audiobooks` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Shelfmark, Audiobookshelf | Audiobooks |
 | `recommendarr` | Recommendarr | Optional AI-powered recommendations (add to `COMPOSE_PROFILES`) |
 
@@ -170,7 +170,9 @@ These steps require manual interaction and cannot be automated:
 
 5. **Recommendarr** (if using recommendarr profile) — Configure your AI service (OpenAI API key or Ollama endpoint) in the Recommendarr UI (`http://localhost:3000`)
 
-6. **Uptime Kuma cleanup** — If upgrading from a previous deployment, manually delete stale monitors (e.g., "LazyLibrarian") in the Uptime Kuma UI. The Ansible role creates monitors but does not delete them.
+6. **Uptime Kuma cleanup** — When a service is renamed or removed, add its old monitor name to `uptime_kuma_retired_monitors` in `vars.yml` and `make ansible-sync` deletes it. Monitors that predate this list (e.g., "LazyLibrarian") can be added there or deleted in the Uptime Kuma UI.
+
+7. **Seerr setup wizard** (fresh installs only) — Complete setup at `http://localhost:5055` by signing in with your Jellyfin admin account, then run `make ansible-sync` to connect Radarr and Sonarr. Existing Jellyseerr data migrates automatically (see [Migrating from Jellyseerr](#migrating-from-jellyseerr-to-seerr)).
 
 ## Ansible Roles
 
@@ -183,11 +185,11 @@ After containers are running, `make ansible-sync` configures services via their 
 | **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets |
 | **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist |
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
-| **jellyseerr** | Jellyseerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
+| **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
-| **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services |
+| **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
 
 Role execution order matters: `env_files` must run first (generates `.env` files), and downstream roles depend on services being healthy (built-in health check retries handle this).
 
@@ -266,6 +268,36 @@ make ansible-sync
 # Restart affected containers to pick up new .env values
 cd docker-media-stack && docker compose up -d
 ```
+
+### Migrating from Jellyseerr to Seerr
+
+Jellyseerr and Overseerr merged into [Seerr](https://docs.seerr.dev/), and the Jellyseerr image is frozen at `2.7.3-deprecated`. Newer Jellyfin releases reject its sign-in request, so Jellyfin logins fail. Seerr imports Jellyseerr data automatically on first start.
+
+What changed in this repo:
+
+| Before | After |
+|--------|-------|
+| `fallenbagel/jellyseerr:latest` | `ghcr.io/seerr-team/seerr:latest` (with `init: true`) |
+| Service/container `jellyseerr` | `seerr` (network alias `jellyseerr` kept) |
+| Volume `jellyseerr-config` | `seerr-config` (must be owned by UID 1000) |
+| `jellyseerr.domain` | `seerr.domain` (`jellyseerr.domain` still routes) |
+| Ansible role `jellyseerr` | `seerr` |
+| Uptime Kuma monitor "Jellyseerr" | "Seerr" (old monitor removed automatically) |
+
+To migrate an existing install's data into the new volume (stop Jellyseerr first):
+
+```bash
+docker stop jellyseerr && docker rm jellyseerr
+docker volume create docker-media-stack_seerr-config
+docker run --rm -v docker-media-stack_jellyseerr-config:/src:ro \
+  -v docker-media-stack_seerr-config:/dst alpine \
+  sh -c 'cp -a /src/. /dst/ && chown -R 1000:1000 /dst'
+make deploy-media && make ansible-sync
+```
+
+The old `jellyseerr-config` volume is left in place for rollback. Once Seerr has been working for a while, remove it with `docker volume rm docker-media-stack_jellyseerr-config`.
+
+**Cloudflare Tunnel:** the tunnel's public hostname for `jellyseerr` keeps working through the network alias. To use the new name, add a `seerr` public hostname pointing to `http://seerr:5055` in the Cloudflare dashboard.
 
 ## Debugging Guide
 
@@ -378,7 +410,7 @@ HomeLab/
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders
 │       ├── radarr/           # Download client, root folders
-│       ├── jellyseerr/       # Radarr/Sonarr integration
+│       ├── seerr/            # Radarr/Sonarr integration
 │       ├── recyclarr/        # Informational (self-managed)
 │       ├── adguard/          # DNS rewrites
 │       ├── traefik/          # Informational (Docker labels)
