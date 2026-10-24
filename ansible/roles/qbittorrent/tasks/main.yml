@@ -22,10 +22,12 @@
   no_log: true
 
 # Older versions return 200 "Fails." on bad credentials, so status alone
-# doesn't prove success — a SID session cookie does
+# doesn't prove success — a session cookie does. Its name varies: "SID"
+# before 5.2, port-suffixed (e.g. "QBT_SID_5080") from 5.2, so check that
+# any cookie was set rather than a specific name
 - name: Verify qBittorrent login succeeded
   ansible.builtin.assert:
-    that: "'SID' in (qbt_login.cookies | default({}))"
+    that: "(qbt_login.cookies | default({})) | length > 0"
     fail_msg: >-
       qBittorrent login failed (no session cookie). Check that
       qbittorrent_username/qbittorrent_password in the vault match the WebUI,
