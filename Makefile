@@ -1,5 +1,9 @@
 SHELL := /bin/bash
 
+# Optional networking-stack services. Deploy without the Cloudflare Tunnel with:
+#   make deploy-networking NETWORKING_PROFILES=
+NETWORKING_PROFILES ?= tunnel
+
 .PHONY: deploy-media deploy-audiobooks deploy-media-full deploy-management deploy-networking deploy-automation deploy-all down-all ansible-sync ansible-deps vault-edit generate-creds extract-keys
 
 deploy-media:
@@ -20,23 +24,24 @@ deploy-management:
 
 deploy-networking:
 	@echo "Starting docker-networking-stack..."
-	cd docker-networking-stack && docker compose up -d
+	cd docker-networking-stack && COMPOSE_PROFILES=$(NETWORKING_PROFILES) docker compose up -d
 
 deploy-automation:
 	@echo "Starting docker-automation-stack..."
 	cd docker-automation-stack && docker compose up -d
 
-deploy-all: deploy-management deploy-networking deploy-media-full deploy-automation
+# Foundation first: every stack's routes need Traefik from the networking stack
+deploy-all: deploy-networking deploy-management deploy-media-full deploy-automation
 
 down-all:
 	@echo "Stopping docker-automation-stack..."
 	cd docker-automation-stack && docker compose down
 	@echo "Stopping docker-media-stack..."
 	cd docker-media-stack && COMPOSE_PROFILES=media,audiobooks,recommendarr docker compose down
-	@echo "Stopping docker-networking-stack..."
-	cd docker-networking-stack && docker compose down
 	@echo "Stopping docker-management-stack..."
 	cd docker-management-stack && docker compose down
+	@echo "Stopping docker-networking-stack..."
+	cd docker-networking-stack && COMPOSE_PROFILES=tunnel docker compose down
 	@echo "All stacks stopped."
 
 ansible-deps:
