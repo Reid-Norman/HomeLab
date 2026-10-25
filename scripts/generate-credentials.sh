@@ -155,7 +155,7 @@ generate_common() {
 
 generate_networking() {
     echo ""
-    echo "=== Networking Stack (Traefik + Cloudflare) ==="
+    echo "=== Networking Stack (Traefik + AdGuard + Cloudflare Tunnel) ==="
     echo ""
 
     # Traefik dashboard password (auto-generated)
@@ -202,12 +202,17 @@ generate_networking() {
     else
         echo "  vault_cf_dns_api_token: (exists, skipping)"
     fi
-}
 
-generate_management() {
-    echo ""
-    echo "=== Management Stack (AdGuard + Uptime Kuma) ==="
-    echo ""
+    # Cloudflare tunnel token (user-provided, optional: only the "tunnel" profile uses it)
+    if var_needs_value vault_cloudflare_tunnel_token; then
+        local tunnel_token
+        read -r -s -p "Cloudflare tunnel token (press Enter to skip if not using the tunnel): " tunnel_token
+        echo >&2
+        set_var vault_cloudflare_tunnel_token "$tunnel_token" || true
+        CHANGED=true
+    else
+        echo "  Cloudflare tunnel token: (exists, skipping)"
+    fi
 
     if var_needs_value adguard_username; then
         local adguard_pass
@@ -225,6 +230,12 @@ generate_management() {
     else
         echo "  AdGuard credentials: (exist, skipping)"
     fi
+}
+
+generate_management() {
+    echo ""
+    echo "=== Management Stack (Uptime Kuma) ==="
+    echo ""
 
     if var_needs_value vault_uptime_kuma_username; then
         local kuma_pass
@@ -246,7 +257,7 @@ generate_management() {
 
 generate_media() {
     echo ""
-    echo "=== Media Stack (VPN + qBittorrent + Seerr + Cloudflare Tunnel) ==="
+    echo "=== Media Stack (VPN + qBittorrent + Seerr) ==="
     echo ""
 
     # VPN credentials (user-provided)
@@ -259,16 +270,6 @@ generate_media() {
         CHANGED=true
     else
         echo "  VPN credentials: (exist, skipping)"
-    fi
-
-    # Cloudflare tunnel token (user-provided)
-    if var_needs_value vault_cloudflare_tunnel_token; then
-        local tunnel_token
-        tunnel_token=$(prompt_secret "Cloudflare tunnel token")
-        set_var vault_cloudflare_tunnel_token "$tunnel_token" || true
-        CHANGED=true
-    else
-        echo "  Cloudflare tunnel token: (exists, skipping)"
     fi
 
     # qBittorrent credentials (auto-generated)

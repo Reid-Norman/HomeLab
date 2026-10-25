@@ -10,9 +10,9 @@ Self-hosted media infrastructure automation. Docker Compose handles container pr
 
 Four independent Docker Compose stacks at the repo root, each with its own `docker-compose.yml`, `.env.example`, and `.env.j2` (Ansible Jinja2 template):
 
-- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf
+- **docker-networking-stack/** — Traefik, AdGuard Home, Cloudflared (optional `tunnel` profile)
 - **docker-management-stack/** — Portainer, Watchtower, Uptime Kuma, Dozzle
-- **docker-networking-stack/** — Traefik, AdGuard Home
+- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
 Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
@@ -28,7 +28,7 @@ make deploy-management
 make deploy-networking
 make deploy-automation
 
-# Deploy all stacks (management → networking → media → automation)
+# Deploy all stacks (networking → management → media → automation)
 make deploy-all
 
 # Install/update Ansible collections (run once, or after changing requirements.yml)
@@ -59,6 +59,8 @@ cd docker-media-stack && docker compose up -d
 - **Shared network:** All stacks share the `homelab-network` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
 - **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, `websecure` entrypoint, and loadbalancer port. No `certresolver` label on routers or the entrypoint (either makes Traefik issue a cert per router). The `traefik-dashboard` router alone requests the `domain` + `*.domain` wildcard, and `websecure` has `http.tls=true` so all routers reuse it. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
+- **Stack layout:** one purpose per stack, and dependencies only point down (networking → management → media → automation). Networking depends on no other stack. Optional pieces are Compose profiles so each stack is reusable on its own. Before adding a service, decide its stack by dependency direction and where its secrets would end up.
+- **Security headers:** the `security-headers` middleware (HSTS, nosniff, referrer policy) is defined on the Traefik container and applied to every route through the `websecure` entrypoint. Don't add it per router.
 - **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via one Let's Encrypt wildcard cert (Cloudflare DNS-01 challenge). Only `jellyfin`, `requests` (Seerr) and `audiobooks` are public, via Cloudflare Tunnel.
 
 ## Key Service Relationships

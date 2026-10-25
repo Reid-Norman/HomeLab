@@ -55,15 +55,6 @@ services:
       - "traefik.http.routers.prowlarr.service=prowlarr"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
 
-  cloudflared:
-    profiles: ["media", "audiobooks"]
-    container_name: cloudflared
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    networks:
-      - ${MY_NETWORK}
-    restart: unless-stopped
-
   qbittorrent:
     profiles: ["media", "audiobooks"]
     container_name: qbittorrent

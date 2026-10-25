@@ -14,13 +14,17 @@ vault_traefik_dashboard_password: "REPLACE_WITH_HTPASSWD_OUTPUT"
 # User-provided: Cloudflare credentials
 vault_cf_api_email: "REPLACE_CF_API_EMAIL"
 vault_cf_dns_api_token: "REPLACE_CF_DNS_API_TOKEN"
+# User-provided, only for the "tunnel" profile: Cloudflare Tunnel token
+vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
+# Auto-generated: AdGuard Home login
+adguard_username: "REPLACE_ADGUARD_USERNAME"
+adguard_password: "REPLACE_ADGUARD_PASSWORD"
 
 # --- Management (generate-creds management) ---
 # Auto-generated
-adguard_username: "REPLACE_ADGUARD_USERNAME"
-adguard_password: "REPLACE_ADGUARD_PASSWORD"
 vault_uptime_kuma_username: "REPLACE_UPTIME_KUMA_USER"
 vault_uptime_kuma_password: "REPLACE_UPTIME_KUMA_PASS"
+
 
 # --- Media (generate-creds media) ---
 # User-provided: VPN credentials
@@ -44,12 +48,6 @@ vault_semaphore_db_password: "REPLACE_SEMAPHORE_DB_PASSWORD"
 # --- Telegram notifications (optional — generate-creds common) ---
 vault_telegram_bot_token: "REPLACE_TELEGRAM_BOT_TOKEN"
 vault_telegram_chat_id: "REPLACE_TELEGRAM_CHAT_ID"
-
-# --- Cloudflare Tunnel (generate-creds media) ---
-vault_cloudflare_tunnel_id: "REPLACE_TUNNEL_UUID"
-vault_cloudflare_tunnel_credentials: "REPLACE_TUNNEL_CREDENTIALS_JSON"
-vault_cloudflare_account_id: "REPLACE_CLOUDFLARE_ACCOUNT_ID"
-vault_cloudflare_zone_id: "REPLACE_CLOUDFLARE_ZONE_ID"
 
 # --- Post-deployment (extract-api-keys.sh) ---
 # Extracted from running containers after first deploy

@@ -17,10 +17,21 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 
 | Stack | Services | Purpose |
 |-------|----------|---------|
-| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Cloudflared, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
-| **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Container management, monitoring, and auto-updates |
-| **docker-networking-stack** | Traefik, AdGuard Home | Reverse proxy, TLS termination, DNS rewriting |
+| **docker-networking-stack** | Traefik, AdGuard Home, Cloudflared *(optional `tunnel` profile)* | How traffic gets in: reverse proxy, TLS, security headers, DNS, public tunnel |
+| **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Watching and running the server: containers, monitoring, logs, auto-updates |
+| **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
 | **docker-automation-stack** | Semaphore | Ansible UI for running playbooks from a browser |
+
+### Stack layout
+
+Each stack has one purpose, and dependencies only point down: a stack may rely on the ones above it in this list, never the ones below.
+
+1. **networking**: the foundation. Every other stack's routes go through its Traefik. It doesn't depend on any other stack, so it's reusable on its own as a reverse proxy + DNS + tunnel setup.
+2. **management**: tools that look after the other stacks. Optional; nothing depends on it.
+3. **media**: the apps. Needs networking only for its `*.domain` URLs; on direct ports it runs alone. No Cloudflare account needed, because the tunnel lives in networking.
+4. **automation**: Semaphore, which runs the Ansible playbooks. Optional.
+
+Optional pieces are Compose profiles (`tunnel` in networking; `media`, `audiobooks`, `recommendarr` in media), so you can deploy only what you need. `make deploy-all` deploys in this order, and `make down-all` stops them in reverse.
 
 ### Service Relationships
 
@@ -43,6 +54,7 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
 - **DNS resolution**: AdGuard Home rewrites `*.domain` to the server's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
+- **Security headers**: every HTTPS route through Traefik gets HSTS (6 months, including subdomains, no preload), `X-Content-Type-Options: nosniff` and a strict referrer policy, via the `security-headers` middleware on the `websecure` entrypoint. Cloudflare adds HSTS to the tunnel hostnames, which don't pass through Traefik.
 - **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. Only the Traefik dashboard router requests it. TLS is on for the whole `websecure` entrypoint, so every other router reuses that certificate with no `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs. Don't add `certresolver` to other routers or to the entrypoint: Traefik would then request a separate certificate per router.
 
 ## Accessing Services
@@ -110,7 +122,7 @@ make generate-creds STACK=all
 # 3. Create the shared Docker network
 docker network create --subnet=172.20.0.0/16 homelab-network
 
-# 4. Deploy all stacks (management → networking → media → automation)
+# 4. Deploy all stacks (networking → management → media → automation)
 make deploy-all
 
 # 5. Complete post-deployment manual steps (see section below)
@@ -143,7 +155,7 @@ make deploy-automation   # Semaphore
 | `make deploy-audiobooks` | Start media stack (audiobooks profile) |
 | `make deploy-media-full` | Start media stack (all profiles) |
 | `make deploy-management` | Start management stack |
-| `make deploy-networking` | Start networking stack |
+| `make deploy-networking` | Start networking stack, including the Cloudflare Tunnel (`NETWORKING_PROFILES=` to leave it out) |
 | `make deploy-automation` | Start automation stack |
 | `make deploy-all` | Start all stacks in dependency order |
 | `make down-all` | Stop all stacks in reverse dependency order |
@@ -161,11 +173,11 @@ The media stack uses Docker Compose profiles to control which services start:
 
 | Profile | Services | Use case |
 |---------|----------|----------|
-| `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Radarr, Sonarr, Jellyfin, Seerr, Recyclarr | Movies & TV |
-| `audiobooks` | VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared, Shelfmark, Audiobookshelf | Audiobooks |
+| `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Radarr, Sonarr, Jellyfin, Seerr, Recyclarr | Movies & TV |
+| `audiobooks` | VPN, qBittorrent, Prowlarr, FlareSolverr, Shelfmark, Audiobookshelf | Audiobooks |
 | `recommendarr` | Recommendarr | Optional AI-powered recommendations (add to `COMPOSE_PROFILES`) |
 
-Shared services (VPN, qBittorrent, Prowlarr, FlareSolverr, Cloudflared) start with **either** `media` or `audiobooks` — they're in both profiles.
+Shared services (VPN, qBittorrent, Prowlarr, FlareSolverr) start with **either** `media` or `audiobooks` — they're in both profiles.
 
 ```bash
 # Movies & TV only
@@ -186,8 +198,9 @@ cd docker-media-stack && COMPOSE_PROFILES=media,audiobooks,recommendarr docker c
 Each stack can be deployed and torn down independently:
 
 ```bash
-make deploy-networking   # Just Traefik + AdGuard
-make deploy-media        # Just media services
+make deploy-networking                       # Traefik + AdGuard + Cloudflare Tunnel
+make deploy-networking NETWORKING_PROFILES=  # Traefik + AdGuard, no tunnel or Cloudflare Tunnel token
+make deploy-media                            # Just media services
 # No need to deploy management or automation if you don't want monitoring/UI
 ```
 
