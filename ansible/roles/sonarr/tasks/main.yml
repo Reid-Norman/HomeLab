@@ -92,3 +92,33 @@
     status_code: [200, 201]
   loop: "{{ sonarr_root_folders }}"
   when: item.path not in sonarr_existing_root_paths
+
+# With Authelia in front of sonarr.<domain>, Sonarr's own login would be a second
+# prompt. "external" makes Sonarr trust the proxy for its UI. Its port is bound to
+# localhost, so only the Mac and other containers can reach it without Authelia.
+# Without Authelia (or with arr_external_auth off), switch back to the login form
+- name: Get Sonarr host settings
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/config/host"
+    method: GET
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: 200
+  register: sonarr_host_config
+  no_log: true  # response includes the stored password and API key
+
+- name: Set Sonarr authentication method
+  vars:
+    sonarr_auth_method: "{{ 'external' if (arr_external_auth and 'authelia' in traefik_admin_middlewares) else 'forms' }}"
+  ansible.builtin.uri:
+    url: "http://localhost:8989/api/v3/config/host/{{ sonarr_host_config.json.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ sonarr_api_key }}"
+    body_format: json
+    body: "{{ sonarr_host_config.json | combine({'authenticationMethod': sonarr_auth_method}) }}"
+    status_code: [200, 202]
+  no_log: true  # the request body includes Sonarr's stored password and API key
+  when: >-
+    (sonarr_auth_method == 'external' and sonarr_host_config.json.authenticationMethod != 'external')
+    or (sonarr_auth_method == 'forms' and sonarr_host_config.json.authenticationMethod == 'external')

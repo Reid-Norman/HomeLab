@@ -4,6 +4,7 @@ media_stack_path: "{{ docker_compose_root }}/docker-media-stack"
 management_stack_path: "{{ docker_compose_root }}/docker-management-stack"
 networking_stack_path: "{{ docker_compose_root }}/docker-networking-stack"
 automation_stack_path: "{{ docker_compose_root }}/docker-automation-stack"
+auth_stack_path: "{{ docker_compose_root }}/docker-auth-stack"
 
 # Networking
 server_lan_ip: "{{ vault_server_ip }}"
@@ -11,6 +12,16 @@ server_lan_ip: "{{ vault_server_ip }}"
 # Static container IPs (must match docker-compose.yml assignments)
 sonarr_static_ip: "172.20.0.201"
 radarr_static_ip: "172.20.0.200"
+traefik_static_ip: "172.20.0.202"  # qBittorrent skips its own login only for this IP (behind Authelia)
+
+# Traefik middlewares on admin routers (rendered into each stack's .env as ADMIN_MIDDLEWARES).
+# Without the auth stack, use "traefik-auth@docker" (basic auth with the Traefik
+# dashboard password) so admin pages still need a login
+traefik_admin_middlewares: "authelia@docker"
+
+# With Authelia in front, turn off the *arr apps' own login (AuthenticationMethod=External).
+# Only applied when traefik_admin_middlewares includes authelia
+arr_external_auth: true
 
 # Prowlarr URL (accessed from within VPN namespace)
 prowlarr_url: "http://vpn:9696"
@@ -115,6 +126,9 @@ uptime_kuma_monitors:
   - name: "AdGuard Home"
     type: http
     url: "http://adguardhome:80"
+  - name: "Authelia"
+    type: http
+    url: "http://authelia:9091/api/health"
   - name: "Traefik"
     type: http
     url: "http://traefik:80"

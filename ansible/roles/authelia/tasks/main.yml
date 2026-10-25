@@ -1,0 +1,24 @@
+# Authelia is configured declaratively (configuration.yml and users_database.yml,
+# rendered by env_files). This role only checks that it's up. Its port isn't
+# published, so the check runs inside the container
+- name: Check if Authelia is deployed
+  ansible.builtin.command: docker ps --quiet --filter name=^authelia$
+  register: authelia_container
+  changed_when: false
+
+- name: Wait for Authelia
+  ansible.builtin.command: docker exec authelia wget -qO- http://127.0.0.1:9091/api/health
+  register: authelia_health
+  changed_when: false
+  retries: 12
+  delay: 10
+  until: authelia_health.rc == 0
+  when: authelia_container.stdout | length > 0
+
+- name: Authelia status
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Authelia is up. First login at https://auth.' ~ vault_domain ~ ' sets up two-factor; the setup
+      link is written to the container: docker exec authelia cat /data/notification.txt'
+      if authelia_container.stdout | length > 0 else
+      'Authelia not deployed (make deploy-auth). Admin routes using authelia@docker return 404 until it is.' }}

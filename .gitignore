@@ -29,3 +29,7 @@ ansible/group_vars/all/vault.yml
 
 # Claude Code
 .claude/
+
+# Authelia config rendered from .j2 by Ansible (users file contains password hashes)
+docker-auth-stack/authelia/configuration.yml
+docker-auth-stack/authelia/users_database.yml

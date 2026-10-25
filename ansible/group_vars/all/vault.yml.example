@@ -9,7 +9,7 @@ vault_server_ip: "192.168.1.100"
 vault_le_email: "REPLACE_LE_EMAIL"
 
 # --- Networking (generate-creds networking) ---
-# Auto-generated: htpasswd hash
+# Auto-generated: htpasswd hash (Traefik dashboard; basic-auth fallback without the auth stack)
 vault_traefik_dashboard_password: "REPLACE_WITH_HTPASSWD_OUTPUT"
 # User-provided: Cloudflare credentials
 vault_cf_api_email: "REPLACE_CF_API_EMAIL"
@@ -19,6 +19,14 @@ vault_cloudflare_tunnel_token: "REPLACE_CLOUDFLARE_TUNNEL_TOKEN"
 # Auto-generated: AdGuard Home login
 adguard_username: "REPLACE_ADGUARD_USERNAME"
 adguard_password: "REPLACE_ADGUARD_PASSWORD"
+
+# --- Auth / Authelia (generate-creds auth) ---
+# Auto-generated: random secrets and the login user's argon2id password hash
+vault_authelia_jwt_secret: "REPLACE_AUTHELIA_JWT_SECRET"
+vault_authelia_session_secret: "REPLACE_AUTHELIA_SESSION_SECRET"
+vault_authelia_storage_key: "REPLACE_AUTHELIA_STORAGE_KEY"
+vault_authelia_user: "admin"
+vault_authelia_password_hash: "REPLACE_AUTHELIA_PASSWORD_HASH"
 
 # --- Management (generate-creds management) ---
 # Auto-generated

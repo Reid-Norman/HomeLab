@@ -1,0 +1,11 @@
+# Authelia reads its config only at startup. Restart it when the rendered files
+# change, but only if it's already running (deploy-auth starts it otherwise)
+- name: Restart Authelia
+  ansible.builtin.shell: |
+    set -o pipefail
+    if docker ps --quiet --filter name=^authelia$ | grep -q .; then
+      docker compose --project-directory "{{ auth_stack_path }}" up -d --force-recreate authelia
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: true

@@ -8,14 +8,15 @@ Self-hosted media infrastructure automation. Docker Compose handles container pr
 
 ## Repository Layout
 
-Four independent Docker Compose stacks at the repo root, each with its own `docker-compose.yml`, `.env.example`, and `.env.j2` (Ansible Jinja2 template):
+Five independent Docker Compose stacks at the repo root, each with its own `docker-compose.yml`, `.env.example`, and `.env.j2` (Ansible Jinja2 template):
 
 - **docker-networking-stack/** — Traefik, AdGuard Home, Cloudflared (optional `tunnel` profile)
+- **docker-auth-stack/** — Authelia (single sign-on with 2FA for admin pages; config rendered from `authelia/*.j2`)
 - **docker-management-stack/** — Portainer, Watchtower, Uptime Kuma, Dozzle
 - **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -26,13 +27,17 @@ make deploy-audiobooks     # Audiobooks only
 make deploy-media-full     # All media services
 make deploy-management
 make deploy-networking
+make deploy-auth
 make deploy-automation
 
-# Deploy all stacks (networking → management → media → automation)
+# Deploy all stacks (networking → auth → management → media → automation)
 make deploy-all
 
 # Install/update Ansible collections (run once, or after changing requirements.yml)
 make ansible-deps
+
+# Render .env files + Authelia config only (no API calls) — run before deploying changed stacks
+make env
 
 # Run Ansible configuration playbook
 make ansible-sync
@@ -55,7 +60,8 @@ cd docker-media-stack && docker compose up -d
 ## Architecture Patterns
 
 - **VPN namespace:** Services needing VPN (qBittorrent, Prowlarr, FlareSolverr) use `network_mode: "service:vpn"` — their ports are exposed via the Gluetun container, not directly.
-- **Static IPs:** Radarr and Sonarr get static container IPs on the Docker network for stable inter-service communication.
+- **Static IPs:** Radarr (`.200`) and Sonarr (`.201`) get static container IPs for stable inter-service communication. Traefik (`.202`) has one so qBittorrent can trust only it (requests that passed Authelia). Never whitelist the whole subnet anywhere: host/LAN traffic arrives from the gateway `172.20.0.1`.
+- **Single sign-on:** admin routers carry `traefik.http.routers.<name>.middlewares=${ADMIN_MIDDLEWARES}` (from `traefik_admin_middlewares` in vars.yml, default `authelia@docker`; `traefik-auth@docker` is the basic-auth fallback without the auth stack). Jellyfin, Seerr and Audiobookshelf stay off it because their apps call the API directly. Admin ports are published on `127.0.0.1` only so the LAN can't bypass Authelia.
 - **Shared network:** All stacks share the `homelab-network` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
 - **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, `websecure` entrypoint, and loadbalancer port. No `certresolver` label on routers or the entrypoint (either makes Traefik issue a cert per router). The `traefik-dashboard` router alone requests the `domain` + `*.domain` wildcard, and `websecure` has `http.tls=true` so all routers reuse it. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
@@ -92,7 +98,7 @@ Traefik  (reverse proxy + TLS termination)
 - Always add new services to both docker-compose.yml AND the Ansible role
 - All services must have a corresponding Uptime Kuma monitor in vars.yml
 - New stacks must follow the existing naming convention: docker-X-stack
-- Always use named volumes, never hardcoded host paths
+- Always use named volumes, never hardcoded host paths. Exception: read-only config files rendered by Ansible into the stack directory (Authelia's `configuration.yml`/`users_database.yml`), mounted with a relative path and gitignored
 - Secrets go in Ansible Vault, never in vars.yml
 - `.env` files are generated from `.env.j2` templates via the `env_files` role
 

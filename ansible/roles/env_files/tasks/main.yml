@@ -21,3 +21,20 @@
     src: "{{ automation_stack_path }}/.env.j2"
     dest: "{{ automation_stack_path }}/.env"
     mode: "0600"
+
+- name: Generate .env for docker-auth-stack
+  ansible.builtin.template:
+    src: "{{ auth_stack_path }}/.env.j2"
+    dest: "{{ auth_stack_path }}/.env"
+    mode: "0600"
+  notify: Restart Authelia
+
+- name: Generate Authelia config files
+  ansible.builtin.template:
+    src: "{{ auth_stack_path }}/authelia/{{ item }}.j2"
+    dest: "{{ auth_stack_path }}/authelia/{{ item }}"
+    mode: "0600"
+  loop:
+    - configuration.yml
+    - users_database.yml
+  notify: Restart Authelia

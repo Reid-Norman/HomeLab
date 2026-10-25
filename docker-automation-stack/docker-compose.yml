@@ -37,7 +37,7 @@ services:
       - SEMAPHORE_ADMIN_PASSWORD=${SEMAPHORE_ADMIN_PASSWORD}
       - SEMAPHORE_ACCESS_KEY_ENCRYPTION=${SEMAPHORE_SECRET_KEY}
     ports:
-      - "3010:3000"
+      - "127.0.0.1:3010:3000"
     volumes:
       - semaphore-data:/var/lib/semaphore
     networks:
@@ -46,6 +46,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.semaphore.rule=Host(`semaphore.${DOMAIN}`)"
       - "traefik.http.routers.semaphore.entrypoints=websecure"
+      - "traefik.http.routers.semaphore.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
 
 volumes:

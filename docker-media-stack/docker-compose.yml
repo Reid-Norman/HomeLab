@@ -35,23 +35,25 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       # qbittorrent ports
-      - 5080:5080
+      - "127.0.0.1:5080:5080"
       - 6881:6881
       - 6881:6881/udp
       # prowlarr ports
-      - 9696:9696
-      - 8191:8191 # flaresolverr port
+      - "127.0.0.1:9696:9696"
+      - "127.0.0.1:8191:8191" # flaresolverr port
     restart: "unless-stopped"
     labels:
       - "traefik.enable=true"
       # qBittorrent (runs in VPN namespace)
       - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN}`)"
       - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.routers.qbittorrent.service=qbittorrent"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=5080"
       # Prowlarr (runs in VPN namespace)
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.routers.prowlarr.service=prowlarr"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
 
@@ -118,7 +120,7 @@ services:
       - ${PGID}
       - ${TZ}
     ports:
-      - 7878:7878
+      - "127.0.0.1:7878:7878"
     volumes:
       - radarr-config:/config
       - torrent-downloads:/downloads
@@ -127,6 +129,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
       - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
 
   sonarr:
@@ -144,12 +147,13 @@ services:
       - sonarr-config:/config
       - torrent-downloads:/downloads
     ports:
-      - 8989:8989
+      - "127.0.0.1:8989:8989"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
       - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
 
   jellyfin:
@@ -195,7 +199,7 @@ services:
     volumes:
       - seerr-config:/app/config
     ports:
-      - 5055:5055
+      - "127.0.0.1:5055:5055"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -218,12 +222,13 @@ services:
     volumes:
       - recommendarr-data:/app/server/data
     ports:
-      - 3000:3000
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.recommendarr.rule=Host(`recommendarr.${DOMAIN}`)"
       - "traefik.http.routers.recommendarr.entrypoints=websecure"
+      - "traefik.http.routers.recommendarr.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
 
   # =================================== AUDIOBOOK SERVICES ===================================
@@ -243,12 +248,13 @@ services:
       - torrent-downloads:/books
       - torrent-downloads:/downloads
     ports:
-      - 8084:8084
+      - "127.0.0.1:8084:8084"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.shelfmark.rule=Host(`shelfmark.${DOMAIN}`)"
       - "traefik.http.routers.shelfmark.entrypoints=websecure"
+      - "traefik.http.routers.shelfmark.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.shelfmark.loadbalancer.server.port=8084"
 
   audiobookshelf:

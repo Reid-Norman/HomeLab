@@ -71,12 +71,18 @@
     status_code: [200, 204]
   when: qbt_prefs.json.max_seeding_time != qbittorrent_max_seeding_time
 
-# Lets Gluetun's VPN_PORT_FORWARDING_UP_COMMAND set the listening port without
-# logging in. "Localhost" here is the VPN namespace, shared only by vpn,
-# qbittorrent, prowlarr and flaresolverr. Host/LAN/Traefik traffic arrives from
-# the Docker gateway (172.20.0.1), so the subnet whitelist must stay off or it
-# would skip auth for the whole LAN
-- name: Limit unauthenticated qBittorrent API access to localhost
+# Who may use the API without qBittorrent's own login:
+# - localhost, so Gluetun's VPN_PORT_FORWARDING_UP_COMMAND can set the listening
+#   port. "Localhost" here is the VPN namespace, shared only by vpn, qbittorrent,
+#   prowlarr and flaresolverr
+# - with Authelia in front, Traefik's static IP only, so requests that already
+#   passed the Authelia login don't hit a second one. Host/LAN traffic arrives
+#   from the Docker gateway (172.20.0.1) and other containers from their own IPs,
+#   so they still need qBittorrent's login. Never whitelist the whole subnet
+- name: Set qBittorrent authentication bypass
+  vars:
+    qbt_whitelist_enabled: "{{ 'authelia' in traefik_admin_middlewares }}"
+    qbt_whitelist: "{{ traefik_static_ip ~ '/32' if qbt_whitelist_enabled else '' }}"
   ansible.builtin.uri:
     url: "http://localhost:5080/api/v2/app/setPreferences"
     method: POST
@@ -84,11 +90,13 @@
       Cookie: "{{ qbt_cookie }}"
     body_format: form-urlencoded
     body:
-      json: '{"bypass_local_auth": true, "bypass_auth_subnet_whitelist_enabled": false}'
+      json: "{{ {'bypass_local_auth': true, 'bypass_auth_subnet_whitelist_enabled': qbt_whitelist_enabled | bool,
+                 'bypass_auth_subnet_whitelist': qbt_whitelist} | to_json }}"
     status_code: [200, 204]
   when: >-
     not qbt_prefs.json.bypass_local_auth
-    or qbt_prefs.json.bypass_auth_subnet_whitelist_enabled
+    or qbt_prefs.json.bypass_auth_subnet_whitelist_enabled != (qbt_whitelist_enabled | bool)
+    or (qbt_whitelist_enabled | bool and qbt_prefs.json.bypass_auth_subnet_whitelist != qbt_whitelist)
 
 # Backstop for the Gluetun up command: the port file is empty until the VPN
 # has a forwarded port, in which case the sync is skipped

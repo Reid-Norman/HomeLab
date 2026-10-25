@@ -52,3 +52,30 @@
     label: "{{ item.name }}"
   when: item.name not in prowlarr_existing_app_names
   no_log: true
+
+# Same as the Sonarr role: hand Prowlarr's login to Authelia when it's in front
+- name: Get Prowlarr host settings
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/config/host"
+    method: GET
+    headers:
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: 200
+  register: prowlarr_host_config
+  no_log: true  # response includes the stored password and API key
+
+- name: Set Prowlarr authentication method
+  vars:
+    prowlarr_auth_method: "{{ 'external' if (arr_external_auth and 'authelia' in traefik_admin_middlewares) else 'forms' }}"
+  ansible.builtin.uri:
+    url: "http://localhost:9696/api/v1/config/host/{{ prowlarr_host_config.json.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    body_format: json
+    body: "{{ prowlarr_host_config.json | combine({'authenticationMethod': prowlarr_auth_method}) }}"
+    status_code: [200, 202]
+  no_log: true  # the request body includes Prowlarr's stored password and API key
+  when: >-
+    (prowlarr_auth_method == 'external' and prowlarr_host_config.json.authenticationMethod != 'external')
+    or (prowlarr_auth_method == 'forms' and prowlarr_host_config.json.authenticationMethod == 'external')
