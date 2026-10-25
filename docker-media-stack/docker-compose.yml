@@ -24,7 +24,10 @@ services:
       - PORT_FORWARD_ONLY=${PORT_FORWARD_ONLY}
       # Push each newly forwarded port to qBittorrent (shares this network namespace).
       # Retries while qBittorrent is still starting; needs bypass_local_auth (set by Ansible)
-      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -qO- --retry-connrefused --tries=30 --waitretry=10 --post-data "json={\"listen_port\":{{PORT}},\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences'
+      - >-
+        VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -qO- --retry-connrefused --tries=30 --waitretry=10
+        --post-data "json={\"listen_port\":{{PORT}},\"random_port\":false,\"upnp\":false}"
+        http://127.0.0.1:5080/api/v2/app/setPreferences'
       - DNS_SERVERS=${DNS_SERVERS}
     networks:
       - ${MY_NETWORK}
