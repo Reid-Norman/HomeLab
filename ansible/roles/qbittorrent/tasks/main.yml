@@ -71,6 +71,48 @@
     status_code: [200, 204]
   when: qbt_prefs.json.max_seeding_time != qbittorrent_max_seeding_time
 
+# Lets Gluetun's VPN_PORT_FORWARDING_UP_COMMAND set the listening port without
+# logging in. "Localhost" here is the VPN namespace, shared only by vpn,
+# qbittorrent, prowlarr and flaresolverr. Host/LAN/Traefik traffic arrives from
+# the Docker gateway (172.20.0.1), so the subnet whitelist must stay off or it
+# would skip auth for the whole LAN
+- name: Limit unauthenticated qBittorrent API access to localhost
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/setPreferences"
+    method: POST
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    body_format: form-urlencoded
+    body:
+      json: '{"bypass_local_auth": true, "bypass_auth_subnet_whitelist_enabled": false}'
+    status_code: [200, 204]
+  when: >-
+    not qbt_prefs.json.bypass_local_auth
+    or qbt_prefs.json.bypass_auth_subnet_whitelist_enabled
+
+# Backstop for the Gluetun up command: the port file is empty until the VPN
+# has a forwarded port, in which case the sync is skipped
+- name: Read Gluetun forwarded port
+  ansible.builtin.command: docker exec vpn cat /tmp/gluetun/forwarded_port
+  register: qbt_forwarded_port
+  changed_when: false
+  failed_when: false
+
+- name: Set qBittorrent listening port to the VPN forwarded port
+  ansible.builtin.uri:
+    url: "http://localhost:5080/api/v2/app/setPreferences"
+    method: POST
+    headers:
+      Cookie: "{{ qbt_cookie }}"
+    body_format: form-urlencoded
+    body:
+      json: '{"listen_port": {{ qbt_forwarded_port.stdout | trim | int }}, "random_port": false, "upnp": false}'
+    status_code: [200, 204]
+  when:
+    - qbt_forwarded_port.rc == 0
+    - (qbt_forwarded_port.stdout | trim) is match('^[0-9]+$')
+    - qbt_prefs.json.listen_port != (qbt_forwarded_port.stdout | trim | int)
+
 - name: Get existing qBittorrent categories
   ansible.builtin.uri:
     url: "http://localhost:5080/api/v2/torrents/categories"

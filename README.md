@@ -163,7 +163,7 @@ These steps require manual interaction and cannot be automated:
 
 3. **Shelfmark initial setup** (if using audiobooks profile):
    - Connect to Prowlarr: `http://vpn:9696`
-   - Configure qBittorrent as download client: `http://vpn:5080`, category: `audiobooks`
+   - Configure qBittorrent as download client: `http://vpn:5080`, category: `audiobooks`, with the qBittorrent username/password from the vault (`make vault-edit`)
    - Set library paths for book organization
 
 4. **Audiobookshelf library setup** (if using audiobooks profile) — Add `/media/audiobooks` as the audiobook library folder in the Audiobookshelf UI (`http://localhost:13378`)
@@ -181,7 +181,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | Role | What it configures | Key actions |
 |------|--------------------|-------------|
 | **env_files** | All stacks | Renders `.env.j2` templates from vault variables (always runs first) |
-| **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`) |
+| **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`), syncs the listening port to the VPN forwarded port, requires login for every client outside the VPN namespace |
 | **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets |
 | **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist |
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
@@ -320,6 +320,10 @@ The old `jellyseerr-config` volume is left in place for rollback. Once Seerr has
 
 **Fix**: Use regular (non-streaming) servers and set `VPN_PORT_FORWARDING=on` in the media stack `.env`.
 
+qBittorrent's listening port must match the port PIA forwards, which can change on reconnect. Gluetun's `VPN_PORT_FORWARDING_UP_COMMAND` pushes each new port to qBittorrent automatically, and `make ansible-sync` re-syncs it as a backstop. Check with `docker exec vpn cat /tmp/gluetun/forwarded_port` against qBittorrent's **Settings → Connection → Listening port**.
+
+The up command can skip logging in because Ansible enables qBittorrent's **Bypass authentication for clients on localhost**. Localhost here is the VPN container's network, shared only by Gluetun, qBittorrent, Prowlarr and FlareSolverr. Browsers, Traefik, Sonarr and Radarr connect from Docker addresses (e.g. `172.20.0.1`), so Ansible also turns off the subnet whitelist, and those clients must log in.
+
 ### Docker API version mismatch
 
 **Symptom**: Traefik or Watchtower fails to start with Docker API version errors.
@@ -406,7 +410,7 @@ HomeLab/
 │   │   └── vault.yml         # Encrypted secrets (ansible-vault)
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
-│       ├── qbittorrent/      # Download path, seeding time, categories
+│       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders
 │       ├── radarr/           # Download client, root folders
