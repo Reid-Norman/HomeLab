@@ -15,7 +15,7 @@ Four independent Docker Compose stacks at the repo root, each with its own `dock
 - **docker-networking-stack/** — Traefik, AdGuard Home
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -57,7 +57,7 @@ cd docker-media-stack && docker compose up -d
 - **VPN namespace:** Services needing VPN (qBittorrent, Prowlarr, FlareSolverr) use `network_mode: "service:vpn"` — their ports are exposed via the Gluetun container, not directly.
 - **Static IPs:** Radarr and Sonarr get static container IPs on the Docker network for stable inter-service communication.
 - **Shared network:** All stacks share the `homelab-network` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
-- **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, `websecure` entrypoint, and loadbalancer port. No per-router `certresolver` label: TLS comes from one wildcard cert set on the `websecure` entrypoint. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
+- **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, `websecure` entrypoint, and loadbalancer port. No `certresolver` label on routers or the entrypoint (either makes Traefik issue a cert per router). The `traefik-dashboard` router alone requests the `domain` + `*.domain` wildcard, and `websecure` has `http.tls=true` so all routers reuse it. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
 - **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via one Let's Encrypt wildcard cert (Cloudflare DNS-01 challenge). Only `jellyfin`, `requests` (Seerr) and `audiobooks` are public, via Cloudflare Tunnel.
 

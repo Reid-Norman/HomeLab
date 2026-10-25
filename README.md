@@ -43,7 +43,7 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
 - **DNS resolution**: AdGuard Home rewrites `*.domain` to the server's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
-- **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. It's set on the `websecure` entrypoint, so routers don't need a `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs.
+- **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. Only the Traefik dashboard router requests it. TLS is on for the whole `websecure` entrypoint, so every other router reuses that certificate with no `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs. Don't add `certresolver` to other routers or to the entrypoint: Traefik would then request a separate certificate per router.
 
 ## Accessing Services
 
@@ -52,9 +52,17 @@ There are two ways in:
 | Path | Hostnames | How it works |
 |------|-----------|--------------|
 | **Public** (Cloudflare Tunnel) | `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access), `audiobooks.domain` | `cloudflared` connects out to Cloudflare. No ports are opened on the router, and Cloudflare serves HTTPS |
-| **Home network** | All hostnames below | AdGuard Home rewrites `*.domain` to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate |
+| **Home network** | All hostnames below | A public DNS-only record `*.domain` points to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate. That IP is private, so these names only connect from inside the home network |
 
-Home-network hostnames only resolve on devices that use AdGuard Home (the server's LAN IP) as their DNS server. Set it as the DNS server in the router's DHCP settings, and give the server a DHCP reservation so its IP doesn't change after a reboot.
+The `cloudflare_dns` role creates the `*.domain` record (Cloudflare, *DNS only*, not proxied) on every `make ansible-sync`. Because it's public DNS, every device finds these names with whatever DNS it already uses, so nothing on the network depends on the server being up. The tunnel hostnames are more specific records, so they still go through the tunnel. Give the server a DHCP reservation so its IP doesn't change after a reboot.
+
+Check from any device with `dig +short seerr.domain`. It should return the server's LAN IP.
+
+- Publishing a private (`192.168.x.x`) IP reveals nothing reachable from outside. It does show that the domain has a home network behind it.
+- A few routers and DNS filters have *DNS rebinding protection*, which drops public answers that contain private IPs. If `dig` returns nothing on one network, allow the domain in that router's rebinding settings.
+- Work laptops on a full-tunnel VPN usually can't reach home-network IPs at all. That's the VPN's policy, not a DNS problem.
+
+AdGuard Home's `*.domain` rewrite still exists for devices that choose AdGuard as their DNS (for ad blocking). It gives the same answer.
 
 | Service | Hostname | Service | Hostname |
 |---------|----------|---------|----------|
@@ -217,6 +225,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
 | **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
+| **cloudflare_dns** | Cloudflare DNS | Keeps the DNS-only `*.domain` record pointed at the server's LAN IP |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
 | **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
@@ -264,7 +273,7 @@ Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credenti
 ### Adding a new service
 
 1. Add the service to the appropriate `docker-compose.yml`
-2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the entrypoint's wildcard certificate
+2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the shared wildcard certificate, so don't add a `certresolver` label
 3. If it needs secrets, add variables to `vault.yml` and the stack's `.env.j2` template
 4. Create an Ansible role if the service has a REST API to configure
 5. Add the role to `ansible/site.yml`
@@ -338,7 +347,7 @@ The old `jellyseerr-config` volume is left in place for rollback. Once Seerr has
 Check which certificate is being served:
 ```bash
 echo | openssl s_client -connect <server-lan-ip>:443 -servername seerr.domain 2>/dev/null \
-  | openssl x509 -noout -issuer -enddate -ext subjectAltName
+  | openssl x509 -noout -text | grep -E "Issuer:|Not After|DNS:"
 ```
 
 **Cause 1**: DNS queries are routing through AdGuard, which rewrites the domain to the local IP, preventing the ACME challenge from verifying.
@@ -450,6 +459,7 @@ HomeLab/
 │   │   └── vault.yml         # Encrypted secrets (ansible-vault)
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
+│       ├── cloudflare_dns/   # Public DNS-only *.domain record → server LAN IP
 │       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders

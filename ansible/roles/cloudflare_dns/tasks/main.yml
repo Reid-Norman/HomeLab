@@ -1,0 +1,15 @@
+# A public, DNS-only wildcard record pointing at the server's LAN IP lets every
+# device resolve the home-network hostnames with whatever DNS it already uses,
+# so nothing depends on AdGuard being up. More specific records (the tunnel
+# CNAMEs, _acme-challenge TXT) still take precedence over the wildcard
+- name: Point wildcard hostname at the server's LAN IP
+  community.general.cloudflare_dns:
+    zone: "{{ vault_domain }}"
+    record: "{{ item }}"
+    type: A
+    value: "{{ server_lan_ip }}"
+    proxied: false
+    solo: true
+    api_token: "{{ vault_cf_dns_api_token }}"
+    state: present
+  loop: "{{ cloudflare_lan_dns_records }}"

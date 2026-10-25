@@ -75,6 +75,11 @@ cloudflare_tunnel_subdomains:
   - requests  # Seerr, behind Cloudflare Access
   - audiobooks
 
+# Public DNS-only A records pointing at the server's LAN IP ("*" = *.domain).
+# Lets LAN devices resolve home-network hostnames without using AdGuard
+cloudflare_lan_dns_records:
+  - "*"
+
 # Cloudflare Access allowed emails
 cloudflare_access_allowed_emails:
   - "{{ vault_le_email }}"
