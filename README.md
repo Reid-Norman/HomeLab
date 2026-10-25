@@ -43,7 +43,37 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
 - **DNS resolution**: AdGuard Home rewrites `*.domain` to the server's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
-- **TLS**: Traefik obtains Let's Encrypt wildcard certificates via Cloudflare DNS-01 challenge.
+- **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. It's set on the `websecure` entrypoint, so routers don't need a `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs.
+
+## Accessing Services
+
+There are two ways in:
+
+| Path | Hostnames | How it works |
+|------|-----------|--------------|
+| **Public** (Cloudflare Tunnel) | `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access), `audiobooks.domain` | `cloudflared` connects out to Cloudflare. No ports are opened on the router, and Cloudflare serves HTTPS |
+| **Home network** | All hostnames below | AdGuard Home rewrites `*.domain` to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate |
+
+Home-network hostnames only resolve on devices that use AdGuard Home (the server's LAN IP) as their DNS server. Set it as the DNS server in the router's DHCP settings, and give the server a DHCP reservation so its IP doesn't change after a reboot.
+
+| Service | Hostname | Service | Hostname |
+|---------|----------|---------|----------|
+| Jellyfin | `jellyfin.domain` | Portainer | `portainer.domain` |
+| Seerr | `seerr.domain` (also `jellyseerr.domain`) | Uptime Kuma | `uptime-kuma.domain` |
+| Sonarr | `sonarr.domain` | Dozzle | `dozzle.domain` |
+| Radarr | `radarr.domain` | Semaphore | `semaphore.domain` |
+| Prowlarr | `prowlarr.domain` | AdGuard Home | `adguard.domain` |
+| qBittorrent | `qbittorrent.domain` | Traefik dashboard | `traefik.domain` |
+| Shelfmark | `shelfmark.domain` | Audiobookshelf | `audiobookshelf.domain` |
+| Recommendarr | `recommendarr.domain` | | |
+
+### Recommended Cloudflare settings
+
+These live in the Cloudflare dashboard, not in this repo:
+
+- **SSL/TLS → Edge Certificates**: turn on *Always Use HTTPS* and *HSTS*, and set *Minimum TLS Version* to 1.2.
+- **Security → WAF → Rate limiting rules**: limit requests to `jellyfin.domain/Users/AuthenticateByName` (for example, 5 per minute per IP) to slow password guessing. Jellyfin is public with no Cloudflare Access because its apps can't get past a login page.
+- **API token**: the token Traefik uses only needs *Zone → DNS → Edit* on this one zone.
 
 ## Prerequisites
 
@@ -187,7 +217,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
 | **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
-| **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution |
+| **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
 | **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
 
@@ -234,7 +264,7 @@ Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credenti
 ### Adding a new service
 
 1. Add the service to the appropriate `docker-compose.yml`
-2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, port)
+2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the entrypoint's wildcard certificate
 3. If it needs secrets, add variables to `vault.yml` and the stack's `.env.j2` template
 4. Create an Ansible role if the service has a REST API to configure
 5. Add the role to `ansible/site.yml`
@@ -297,20 +327,30 @@ make deploy-media && make ansible-sync
 
 The old `jellyseerr-config` volume is left in place for rollback. Once Seerr has been working for a while, remove it with `docker volume rm docker-media-stack_jellyseerr-config`.
 
-**Cloudflare Tunnel:** the tunnel's public hostname for `jellyseerr` keeps working through the network alias. To use the new name, add a `seerr` public hostname pointing to `http://seerr:5055` in the Cloudflare dashboard.
+**Cloudflare Tunnel:** the tunnel's public hostname for Seerr is `requests.domain`, pointing to `http://jellyseerr:5055`. It keeps working through the `jellyseerr` network alias. To drop the alias later, change the tunnel's service URL to `http://seerr:5055` in the Cloudflare dashboard.
 
 ## Debugging Guide
 
 ### DNS challenge fails (Traefik can't get TLS certificates)
 
-**Symptom**: Traefik logs show ACME DNS-01 challenge failures.
+**Symptom**: Browsers show "not secure" on home-network hostnames, and the certificate is `TRAEFIK DEFAULT CERT` or expired. Traefik logs show ACME DNS-01 failures such as `could not find zone ... i/o timeout`.
 
-**Cause**: DNS queries are routing through AdGuard, which rewrites the domain to the local IP, preventing the ACME challenge from verifying.
+Check which certificate is being served:
+```bash
+echo | openssl s_client -connect <server-lan-ip>:443 -servername seerr.domain 2>/dev/null \
+  | openssl x509 -noout -issuer -enddate -ext subjectAltName
+```
 
-**Fix**: Ensure Traefik's certificate resolver uses external DNS:
+**Cause 1**: DNS queries are routing through AdGuard, which rewrites the domain to the local IP, preventing the ACME challenge from verifying.
+
+**Fix**: Make sure Traefik's certificate resolver uses external DNS (already set in the networking stack):
 ```
---certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
 ```
+
+**Cause 2**: A VPN app on the host (for example, the PIA desktop app with its DNS leak protection) blocks DNS traffic to everything except its own resolver. This affects Docker containers too. Test with `dig +time=3 SOA domain @1.1.1.1`: a timeout means DNS is being blocked.
+
+**Fix**: Don't run a desktop VPN on the server. Gluetun already routes torrent traffic through the VPN on its own. Once DNS works, Traefik retries and renews automatically within a few minutes. AdGuard's upstreams use DNS-over-HTTPS by IP, so lookups for LAN devices keep working even while port 53 is blocked.
 
 ### VPN port forwarding not working
 

@@ -36,3 +36,28 @@
   loop: "{{ adguard_dns_rewrites }}"
   when: >-
     existing_rewrites.json | selectattr('domain', 'equalto', item.domain) | list | length == 0
+
+- name: Get current AdGuard DNS settings
+  ansible.builtin.uri:
+    url: "http://localhost:8053/control/dns_info"
+    method: GET
+    user: "{{ adguard_username }}"
+    password: "{{ adguard_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: adguard_dns_info
+
+# DNS-over-HTTPS by IP needs no bootstrap resolver, so upstream lookups keep
+# working (and stay encrypted) even when something on the host blocks port 53
+- name: Set AdGuard upstream DNS servers
+  ansible.builtin.uri:
+    url: "http://localhost:8053/control/dns_config"
+    method: POST
+    user: "{{ adguard_username }}"
+    password: "{{ adguard_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      upstream_dns: "{{ adguard_upstream_dns }}"
+    status_code: 200
+  when: adguard_dns_info.json.upstream_dns != adguard_upstream_dns

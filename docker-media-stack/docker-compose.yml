@@ -47,13 +47,11 @@ services:
       # qBittorrent (runs in VPN namespace)
       - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN}`)"
       - "traefik.http.routers.qbittorrent.entrypoints=websecure"
-      - "traefik.http.routers.qbittorrent.tls.certresolver=cloudflare"
       - "traefik.http.routers.qbittorrent.service=qbittorrent"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=5080"
       # Prowlarr (runs in VPN namespace)
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
-      - "traefik.http.routers.prowlarr.tls.certresolver=cloudflare"
       - "traefik.http.routers.prowlarr.service=prowlarr"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
 
@@ -138,7 +136,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
       - "traefik.http.routers.radarr.entrypoints=websecure"
-      - "traefik.http.routers.radarr.tls.certresolver=cloudflare"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
 
   sonarr:
@@ -162,7 +159,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
       - "traefik.http.routers.sonarr.entrypoints=websecure"
-      - "traefik.http.routers.sonarr.tls.certresolver=cloudflare"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
 
   jellyfin:
@@ -187,7 +183,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
       - "traefik.http.routers.jellyfin.entrypoints=websecure"
-      - "traefik.http.routers.jellyfin.tls.certresolver=cloudflare"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
 
   # Seerr — successor to Jellyseerr/Overseerr (they merged into Seerr).
@@ -215,7 +210,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.seerr.rule=Host(`seerr.${DOMAIN}`) || Host(`jellyseerr.${DOMAIN}`)"
       - "traefik.http.routers.seerr.entrypoints=websecure"
-      - "traefik.http.routers.seerr.tls.certresolver=cloudflare"
       - "traefik.http.services.seerr.loadbalancer.server.port=5055"
 
   recommendarr:
@@ -239,7 +233,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.recommendarr.rule=Host(`recommendarr.${DOMAIN}`)"
       - "traefik.http.routers.recommendarr.entrypoints=websecure"
-      - "traefik.http.routers.recommendarr.tls.certresolver=cloudflare"
       - "traefik.http.services.recommendarr.loadbalancer.server.port=3000"
 
   # =================================== AUDIOBOOK SERVICES ===================================
@@ -265,7 +258,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.shelfmark.rule=Host(`shelfmark.${DOMAIN}`)"
       - "traefik.http.routers.shelfmark.entrypoints=websecure"
-      - "traefik.http.routers.shelfmark.tls.certresolver=cloudflare"
       - "traefik.http.services.shelfmark.loadbalancer.server.port=8084"
 
   audiobookshelf:
@@ -289,7 +281,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.audiobookshelf.rule=Host(`audiobookshelf.${DOMAIN}`)"
       - "traefik.http.routers.audiobookshelf.entrypoints=websecure"
-      - "traefik.http.routers.audiobookshelf.tls.certresolver=cloudflare"
       - "traefik.http.services.audiobookshelf.loadbalancer.server.port=80"
 
 volumes:

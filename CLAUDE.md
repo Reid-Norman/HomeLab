@@ -57,9 +57,9 @@ cd docker-media-stack && docker compose up -d
 - **VPN namespace:** Services needing VPN (qBittorrent, Prowlarr, FlareSolverr) use `network_mode: "service:vpn"` — their ports are exposed via the Gluetun container, not directly.
 - **Static IPs:** Radarr and Sonarr get static container IPs on the Docker network for stable inter-service communication.
 - **Shared network:** All stacks share the `homelab-network` Docker network (172.20.0.0/16) so Traefik can route to any container by name.
-- **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, entrypoint, certresolver, and loadbalancer port. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
+- **Traefik labels:** Routing is declarative via Docker labels on each service — `traefik.enable=true`, `Host()` rule, `websecure` entrypoint, and loadbalancer port. No per-router `certresolver` label: TLS comes from one wildcard cert set on the `websecure` entrypoint. VPN-namespaced services (qBittorrent, Prowlarr) get their labels on the Gluetun container.
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
-- **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via Let's Encrypt wildcard certs (Cloudflare DNS-01 challenge).
+- **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via one Let's Encrypt wildcard cert (Cloudflare DNS-01 challenge). Only `jellyfin`, `requests` (Seerr) and `audiobooks` are public, via Cloudflare Tunnel.
 
 ## Key Service Relationships
 
