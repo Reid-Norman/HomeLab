@@ -52,14 +52,17 @@ There are two ways in:
 | Path | Hostnames | How it works |
 |------|-----------|--------------|
 | **Public** (Cloudflare Tunnel) | `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access), `audiobooks.domain` | `cloudflared` connects out to Cloudflare. No ports are opened on the router, and Cloudflare serves HTTPS |
-| **Home network** | All hostnames below | AdGuard Home rewrites `*.domain` to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate |
+| **Home network** | All hostnames below | A public DNS-only record `*.domain` points to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate. That IP is private, so these names only connect from inside the home network |
 
-Home-network hostnames only resolve on devices that use AdGuard Home (the server's LAN IP) as their DNS server. Give the server a DHCP reservation so its IP doesn't change after a reboot, then pick one of these:
+The `cloudflare_dns` role creates the `*.domain` record (Cloudflare, *DNS only*, not proxied) on every `make ansible-sync`. Because it's public DNS, every device finds these names with whatever DNS it already uses, so nothing on the network depends on the server being up. The tunnel hostnames are more specific records, so they still go through the tunnel. Give the server a DHCP reservation so its IP doesn't change after a reboot.
 
-- **Whole network (recommended):** in the router's DHCP/LAN settings, set the primary DNS server to the server's LAN IP. Leave the secondary empty or set it to the same IP. With a public secondary like `1.1.1.1`, devices randomly skip AdGuard and the hostnames fail intermittently. The tradeoff: if the server is down, devices on the network can't look anything up.
-- **Single device:** set the DNS server manually on that device (macOS: *System Settings → Network → your connection → Details → DNS*).
+Check from any device with `dig +short seerr.domain`. It should return the server's LAN IP.
 
-Check from any device with `dig +short seerr.domain`. It should return the server's LAN IP. If it returns nothing, that device isn't using AdGuard.
+- Publishing a private (`192.168.x.x`) IP reveals nothing reachable from outside. It does show that the domain has a home network behind it.
+- A few routers and DNS filters have *DNS rebinding protection*, which drops public answers that contain private IPs. If `dig` returns nothing on one network, allow the domain in that router's rebinding settings.
+- Work laptops on a full-tunnel VPN usually can't reach home-network IPs at all. That's the VPN's policy, not a DNS problem.
+
+AdGuard Home's `*.domain` rewrite still exists for devices that choose AdGuard as their DNS (for ad blocking). It gives the same answer.
 
 | Service | Hostname | Service | Hostname |
 |---------|----------|---------|----------|
@@ -222,6 +225,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
 | **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
+| **cloudflare_dns** | Cloudflare DNS | Keeps the DNS-only `*.domain` record pointed at the server's LAN IP |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
 | **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
@@ -455,6 +459,7 @@ HomeLab/
 │   │   └── vault.yml         # Encrypted secrets (ansible-vault)
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
+│       ├── cloudflare_dns/   # Public DNS-only *.domain record → server LAN IP
 │       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders
