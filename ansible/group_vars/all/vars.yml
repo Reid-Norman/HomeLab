@@ -20,6 +20,11 @@ adguard_dns_rewrites:
   - domain: "*.{{ vault_domain }}"
     answer: "{{ server_lan_ip }}"
 
+# AdGuard upstream resolvers (DNS-over-HTTPS by IP, no bootstrap DNS needed)
+adguard_upstream_dns:
+  - "https://1.1.1.1/dns-query"
+  - "https://9.9.9.9/dns-query"
+
 # qBittorrent preferences
 qbittorrent_download_path: "/downloads"
 qbittorrent_max_seeding_time: 14400  # 10 days in minutes
@@ -63,23 +68,12 @@ jellyfin_plugins:
   - name: "Intro Skipper"
   - name: "Fanart"
 
-# Cloudflare Tunnel subdomains (CNAME records pointing to tunnel)
+# Cloudflare Tunnel public hostnames (managed in the Cloudflare dashboard).
+# Everything else is LAN/Tailscale only, via AdGuard + Traefik
 cloudflare_tunnel_subdomains:
   - jellyfin
-  - sonarr
-  - radarr
-  - prowlarr
-  - qbittorrent
-  - seerr
-  - jellyseerr  # legacy hostname, still routed to Seerr
-  - audiobookshelf
-  - shelfmark
-  - recommendarr
-  - portainer
-  - uptime-kuma
-  - dozzle
-  - semaphore
-  - traefik
+  - requests  # Seerr, behind Cloudflare Access
+  - audiobooks
 
 # Cloudflare Access allowed emails
 cloudflare_access_allowed_emails:
