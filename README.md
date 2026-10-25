@@ -43,7 +43,7 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 - **VPN-namespaced services**: qBittorrent, Prowlarr, and FlareSolverr use `network_mode: "service:vpn"` — they share Gluetun's network stack. Ports and Traefik labels are defined on the Gluetun container.
 - **Static IPs**: Radarr (`172.20.0.200`) and Sonarr (`172.20.0.201`) get static container IPs in the high end of the subnet to avoid conflicts with Docker's dynamic allocation. These are needed for Prowlarr (inside the VPN namespace) to reach them.
 - **DNS resolution**: AdGuard Home rewrites `*.domain` to the server's LAN IP. Traefik uses `Host()` rules to route requests to the correct container.
-- **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. It's set on the `websecure` entrypoint, so routers don't need a `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs.
+- **TLS**: Traefik obtains one Let's Encrypt wildcard certificate (`domain` + `*.domain`) via the Cloudflare DNS-01 challenge. Only the Traefik dashboard router requests it. TLS is on for the whole `websecure` entrypoint, so every other router reuses that certificate with no `certresolver` label, and individual subdomain names stay out of public Certificate Transparency logs. Don't add `certresolver` to other routers or to the entrypoint: Traefik would then request a separate certificate per router.
 
 ## Accessing Services
 
@@ -54,7 +54,12 @@ There are two ways in:
 | **Public** (Cloudflare Tunnel) | `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access), `audiobooks.domain` | `cloudflared` connects out to Cloudflare. No ports are opened on the router, and Cloudflare serves HTTPS |
 | **Home network** | All hostnames below | AdGuard Home rewrites `*.domain` to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate |
 
-Home-network hostnames only resolve on devices that use AdGuard Home (the server's LAN IP) as their DNS server. Set it as the DNS server in the router's DHCP settings, and give the server a DHCP reservation so its IP doesn't change after a reboot.
+Home-network hostnames only resolve on devices that use AdGuard Home (the server's LAN IP) as their DNS server. Give the server a DHCP reservation so its IP doesn't change after a reboot, then pick one of these:
+
+- **Whole network (recommended):** in the router's DHCP/LAN settings, set the primary DNS server to the server's LAN IP. Leave the secondary empty or set it to the same IP. With a public secondary like `1.1.1.1`, devices randomly skip AdGuard and the hostnames fail intermittently. The tradeoff: if the server is down, devices on the network can't look anything up.
+- **Single device:** set the DNS server manually on that device (macOS: *System Settings → Network → your connection → Details → DNS*).
+
+Check from any device with `dig +short seerr.domain`. It should return the server's LAN IP. If it returns nothing, that device isn't using AdGuard.
 
 | Service | Hostname | Service | Hostname |
 |---------|----------|---------|----------|
@@ -264,7 +269,7 @@ Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credenti
 ### Adding a new service
 
 1. Add the service to the appropriate `docker-compose.yml`
-2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the entrypoint's wildcard certificate
+2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the shared wildcard certificate, so don't add a `certresolver` label
 3. If it needs secrets, add variables to `vault.yml` and the stack's `.env.j2` template
 4. Create an Ansible role if the service has a REST API to configure
 5. Add the role to `ansible/site.yml`
@@ -338,7 +343,7 @@ The old `jellyseerr-config` volume is left in place for rollback. Once Seerr has
 Check which certificate is being served:
 ```bash
 echo | openssl s_client -connect <server-lan-ip>:443 -servername seerr.domain 2>/dev/null \
-  | openssl x509 -noout -issuer -enddate -ext subjectAltName
+  | openssl x509 -noout -text | grep -E "Issuer:|Not After|DNS:"
 ```
 
 **Cause 1**: DNS queries are routing through AdGuard, which rewrites the domain to the local IP, preventing the ACME challenge from verifying.
