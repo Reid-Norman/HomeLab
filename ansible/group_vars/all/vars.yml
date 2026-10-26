@@ -30,6 +30,13 @@ authelia_default_redirection_url: "https://home.{{ vault_domain }}"
 # Prowlarr URL (accessed from within VPN namespace)
 prowlarr_url: "http://vpn:9696"
 
+# Tailscale (remote access). The server advertises its own LAN IP to the tailnet, so
+# the public *.domain record (-> that IP) works from anywhere Tailscale is on.
+# Checked by the tailscale role; set up by hand (README: Remote access)
+tailscale_bin: "/opt/homebrew/bin/tailscale"
+tailscale_advertise_routes:
+  - "{{ server_lan_ip }}/32"
+
 # AdGuard DNS rewrites (wildcard covers all subdomains)
 adguard_dns_rewrites:
   - domain: "*.{{ vault_domain }}"

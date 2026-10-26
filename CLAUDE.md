@@ -16,7 +16,7 @@ Five independent Docker Compose stacks at the repo root, each with its own `dock
 - **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, homepage, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, tailscale, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, homepage, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -67,7 +67,7 @@ cd docker-media-stack && docker compose up -d
 - **Ansible post-config:** After containers are running, Ansible roles configure services by calling their REST APIs (health checks, indexer setup, download client wiring, DNS rewrites).
 - **Stack layout:** one purpose per stack, and dependencies only point down (networking → management → media → automation). Networking depends on no other stack. Optional pieces are Compose profiles so each stack is reusable on its own. Before adding a service, decide its stack by dependency direction and where its secrets would end up.
 - **Security headers:** the `security-headers` middleware (HSTS, nosniff, referrer policy) is defined on the Traefik container and applied to every route through the `websecure` entrypoint. Don't add it per router.
-- **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via one Let's Encrypt wildcard cert (Cloudflare DNS-01 challenge). Only `jellyfin`, `requests` (Seerr) and `audiobooks` are public, via Cloudflare Tunnel.
+- **Hostname-based access:** All services accessed via `*.domain` — AdGuard provides DNS rewriting to the server's LAN IP, Traefik handles reverse proxy + TLS via one Let's Encrypt wildcard cert (Cloudflare DNS-01 challenge). Only `jellyfin`, `requests` (Seerr) and `audiobooks` are public, via Cloudflare Tunnel. Remote admin access is Tailscale only: the host's Homebrew `tailscaled` advertises `<server LAN IP>/32`, so the same `*.domain` URLs work away from home. It's set up by hand (sudo + browser login); the `tailscale` role only reports status and never fails the play
 
 ## Key Service Relationships
 
