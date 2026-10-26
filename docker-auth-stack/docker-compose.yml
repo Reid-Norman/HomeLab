@@ -1,0 +1,33 @@
+name: docker-auth-stack
+services:
+  authelia:
+    image: authelia/authelia:4.39
+    container_name: authelia
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Rendered from the .j2 templates next to them by the env_files role (gitignored)
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - authelia-data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      # Single sign-on for every router whose middlewares include authelia@docker
+      # (ADMIN_MIDDLEWARES in each stack's .env). If this stack is down, those
+      # routers can't find the middleware and return 404, so they fail closed
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/authz/forward-auth"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Email,Remote-Name"
+    networks:
+      - homelab-network
+
+volumes:
+  authelia-data:
+
+networks:
+  homelab-network:
+    external: true

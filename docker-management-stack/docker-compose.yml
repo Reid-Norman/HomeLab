@@ -10,13 +10,14 @@ services:
       - portainer-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     networks:
       - homelab-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   watchtower:
@@ -43,13 +44,14 @@ services:
     volumes:
       - uptime-kuma-data:/app/data
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     networks:
       - homelab-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.uptime-kuma.rule=Host(`uptime-kuma.${DOMAIN}`)"
       - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
 
   dozzle:
@@ -59,7 +61,7 @@ services:
     env_file:
       - .env
     ports:
-      - "9999:8080"
+      - "127.0.0.1:9999:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -68,6 +70,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
 
 volumes:

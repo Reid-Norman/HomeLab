@@ -6,6 +6,7 @@
     - group_vars/all/vault.yml
   roles:
     - role: env_files
+      tags: [env]
     - role: cloudflare_tunnel
     - role: cloudflare_dns
     - role: qbittorrent
@@ -17,5 +18,6 @@
     - role: recyclarr
     - role: adguard
     - role: traefik
+    - role: authelia
     - role: uptime_kuma
     - role: semaphore

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Generates credentials for HomeLab stacks and saves them to Ansible Vault.
 # Usage: ./scripts/generate-credentials.sh <stack>
-# Stacks: common, networking, management, media, semaphore, all
+# Stacks: common, networking, auth, management, media, semaphore, all
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VAULT_FILE="${REPO_ROOT}/ansible/group_vars/all/vault.yml"
-STACK="${1:?Usage: $0 <stack>  (available: common, networking, management, media, semaphore, all)}"
+STACK="${1:?Usage: $0 <stack>  (available: common, networking, auth, management, media, semaphore, all)}"
 
 # --- Vault password handling ---
 read -r -s -p "Vault password: " VAULT_PASS
@@ -307,6 +307,45 @@ generate_media() {
     fi
 }
 
+generate_auth() {
+    echo ""
+    echo "=== Auth Stack (Authelia) ==="
+    echo ""
+
+    # Random secrets Authelia uses to sign sessions/tokens and encrypt its database
+    local name
+    for name in vault_authelia_jwt_secret vault_authelia_session_secret vault_authelia_storage_key; do
+        if var_needs_value "$name"; then
+            set_var "$name" "$(generate_password 48)" || true
+            CHANGED=true
+        else
+            echo "  ${name}: (exists, skipping)"
+        fi
+    done
+
+    # Login user. Authelia generates the password and its argon2id hash itself,
+    # so the password never appears on a command line
+    if var_needs_value vault_authelia_password_hash; then
+        local output auth_pass auth_hash
+        output=$(docker run --rm authelia/authelia:4.39 \
+            authelia crypto hash generate argon2 --random --random.length 24)
+        auth_pass=$(sed -n 's/^Random Password: //p' <<<"$output")
+        auth_hash=$(sed -n 's/^Digest: //p' <<<"$output")
+        set_var vault_authelia_user "admin" || true
+        set_var vault_authelia_password_hash "$auth_hash" || true
+        CHANGED=true
+
+        echo "  Authelia (single sign-on):"
+        echo "    Username: admin"
+        echo "    Password: ${auth_pass}"
+        echo ""
+        echo "  Save this password — it is only shown once. Two-factor setup happens on first login."
+        echo ""
+    else
+        echo "  Authelia login: (exists, skipping)"
+    fi
+}
+
 generate_semaphore() {
     echo ""
     echo "=== Automation Stack (Semaphore) ==="
@@ -353,19 +392,21 @@ generate_semaphore() {
 case "$STACK" in
     common)      generate_common ;;
     networking)  generate_networking ;;
+    auth)        generate_auth ;;
     management)  generate_management ;;
     media)       generate_media ;;
     semaphore)   generate_semaphore ;;
     all)
         generate_common
         generate_networking
+        generate_auth
         generate_management
         generate_media
         generate_semaphore
         ;;
     *)
         echo "Unknown stack: ${STACK}"
-        echo "Available: common, networking, management, media, semaphore, all"
+        echo "Available: common, networking, auth, management, media, semaphore, all"
         exit 1
         ;;
 esac

@@ -46,7 +46,8 @@ services:
       - "traefik.http.routers.traefik-dashboard.tls.certresolver=cloudflare"
       - "traefik.http.routers.traefik-dashboard.tls.domains[0].main=${DOMAIN}"
       - "traefik.http.routers.traefik-dashboard.tls.domains[0].sans=*.${DOMAIN}"
-      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik-dashboard.middlewares=${ADMIN_MIDDLEWARES}"
+      # Basic-auth fallback for ADMIN_MIDDLEWARES when the auth stack isn't deployed
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
       # HSTS for 6 months incl. subdomains (no preload, which is hard to undo). Matches
       # what Cloudflare sends for the tunnel hostnames, which don't pass through Traefik
@@ -55,7 +56,8 @@ services:
       - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
       - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
     networks:
-      - homelab-network
+      homelab-network:
+        ipv4_address: ${TRAEFIK_STATIC_CONTAINER_IP}
 
   adguardhome:
     image: adguard/adguardhome:latest
@@ -67,13 +69,14 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "3053:3000"
-      - "8053:80"
+      - "127.0.0.1:3053:3000"
+      - "127.0.0.1:8053:80"
       - "853:853/tcp"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adguard.rule=Host(`adguard.${DOMAIN}`)"
       - "traefik.http.routers.adguard.entrypoints=websecure"
+      - "traefik.http.routers.adguard.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.adguard.loadbalancer.server.port=80"
     networks:
       - homelab-network

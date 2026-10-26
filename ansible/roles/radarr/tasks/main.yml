@@ -92,3 +92,30 @@
     status_code: [200, 201]
   loop: "{{ radarr_root_folders }}"
   when: item.path not in radarr_existing_root_paths
+
+# Same as the Sonarr role: hand Radarr's login to Authelia when it's in front
+- name: Get Radarr host settings
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/config/host"
+    method: GET
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    status_code: 200
+  register: radarr_host_config
+  no_log: true  # response includes the stored password and API key
+
+- name: Set Radarr authentication method
+  vars:
+    radarr_auth_method: "{{ 'external' if (arr_external_auth and 'authelia' in traefik_admin_middlewares) else 'forms' }}"
+  ansible.builtin.uri:
+    url: "http://localhost:7878/api/v3/config/host/{{ radarr_host_config.json.id }}"
+    method: PUT
+    headers:
+      X-Api-Key: "{{ radarr_api_key }}"
+    body_format: json
+    body: "{{ radarr_host_config.json | combine({'authenticationMethod': radarr_auth_method}) }}"
+    status_code: [200, 202]
+  no_log: true  # the request body includes Radarr's stored password and API key
+  when: >-
+    (radarr_auth_method == 'external' and radarr_host_config.json.authenticationMethod != 'external')
+    or (radarr_auth_method == 'forms' and radarr_host_config.json.authenticationMethod == 'external')

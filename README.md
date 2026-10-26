@@ -18,6 +18,7 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 | Stack | Services | Purpose |
 |-------|----------|---------|
 | **docker-networking-stack** | Traefik, AdGuard Home, Cloudflared *(optional `tunnel` profile)* | How traffic gets in: reverse proxy, TLS, security headers, DNS, public tunnel |
+| **docker-auth-stack** | Authelia | Who is allowed in: one login with two-factor for every admin page |
 | **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Watching and running the server: containers, monitoring, logs, auto-updates |
 | **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
 | **docker-automation-stack** | Semaphore | Ansible UI for running playbooks from a browser |
@@ -27,9 +28,10 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 Each stack has one purpose, and dependencies only point down: a stack may rely on the ones above it in this list, never the ones below.
 
 1. **networking**: the foundation. Every other stack's routes go through its Traefik. It doesn't depend on any other stack, so it's reusable on its own as a reverse proxy + DNS + tunnel setup.
-2. **management**: tools that look after the other stacks. Optional; nothing depends on it.
-3. **media**: the apps. Needs networking only for its `*.domain` URLs; on direct ports it runs alone. No Cloudflare account needed, because the tunnel lives in networking.
-4. **automation**: Semaphore, which runs the Ansible playbooks. Optional.
+2. **auth**: Authelia, the login in front of admin pages. Needs networking (Traefik). Optional: see [Running without the auth stack](#running-without-the-auth-stack).
+3. **management**: tools that look after the other stacks. Optional; nothing depends on it.
+4. **media**: the apps. Needs networking only for its `*.domain` URLs; on direct ports it runs alone. No Cloudflare account needed, because the tunnel lives in networking.
+5. **automation**: Semaphore, which runs the Ansible playbooks. Optional.
 
 Optional pieces are Compose profiles (`tunnel` in networking; `media`, `audiobooks`, `recommendarr` in media), so you can deploy only what you need. `make deploy-all` deploys in this order, and `make down-all` stops them in reverse.
 
@@ -95,6 +97,19 @@ These live in the Cloudflare dashboard, not in this repo:
 - **Security → WAF → Rate limiting rules**: limit requests to `jellyfin.domain/Users/AuthenticateByName` (for example, 5 per minute per IP) to slow password guessing. Jellyfin is public with no Cloudflare Access because its apps can't get past a login page.
 - **API token**: the token Traefik uses only needs *Zone → DNS → Edit* on this one zone.
 
+### Single sign-on (Authelia)
+
+Admin pages sit behind one Authelia login with two-factor: Sonarr, Radarr, Prowlarr, qBittorrent, Shelfmark, Recommendarr, Portainer, Uptime Kuma, Dozzle, Semaphore, AdGuard and the Traefik dashboard. Log in once at any of them and the session (a cookie on the apex domain) covers all the others.
+
+- **Second logins:** Sonarr, Radarr, Prowlarr and qBittorrent skip their own login behind Authelia. Portainer, Semaphore, AdGuard and Uptime Kuma keep theirs; Portainer controls the whole Docker host, so it deliberately needs both.
+- **Not behind Authelia:** Jellyfin, Seerr and Audiobookshelf. Their TV and phone apps talk to the API directly and can't get past a login page. They keep their own logins.
+- **No bypass through ports:** admin ports are published on `127.0.0.1` only, so the Mac (and Ansible) can still use `http://localhost:<port>`, but other devices can't skip Authelia that way.
+- **If Authelia is down,** admin pages return 404 instead of opening: they fail closed.
+
+#### Running without the auth stack
+
+Set `traefik_admin_middlewares: "traefik-auth@docker"` in `vars.yml`, then run `make env`, redeploy the stacks, and `make ansible-sync`. Admin pages then use basic auth with the Traefik dashboard password (`vault_traefik_dashboard_password`). The Sonarr/Radarr/Prowlarr roles switch those apps back to their own login form, and qBittorrent stops trusting Traefik's IP.
+
 ## Prerequisites
 
 | Requirement | Install | Purpose |
@@ -122,19 +137,22 @@ make generate-creds STACK=all
 # 3. Create the shared Docker network
 docker network create --subnet=172.20.0.0/16 homelab-network
 
-# 4. Deploy all stacks (networking → management → media → automation)
+# 4. Render .env files and Authelia config from the vault
+make env
+
+# 5. Deploy all stacks (networking → auth → management → media → automation)
 make deploy-all
 
-# 5. Complete post-deployment manual steps (see section below)
+# 6. Complete post-deployment manual steps (see section below)
 
-# 6. Extract API keys from running containers
+# 7. Extract API keys from running containers
 make extract-keys
 
-# 7. Configure all services via their REST APIs
+# 8. Configure all services via their REST APIs
 make ansible-sync
 ```
 
-After step 7, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Seerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
+After step 8, all services are fully wired: Prowlarr syncs indexers to Sonarr/Radarr, both use qBittorrent as their download client, Seerr can make requests to both, DNS rewriting is configured, and Uptime Kuma monitors everything.
 
 ### Deploy a single stack
 
@@ -155,6 +173,8 @@ make deploy-automation   # Semaphore
 | `make deploy-audiobooks` | Start media stack (audiobooks profile) |
 | `make deploy-media-full` | Start media stack (all profiles) |
 | `make deploy-management` | Start management stack |
+| `make env` | Only render `.env` files and Authelia config from the vault (no service API calls). Run before deploying a stack whose config changed |
+| `make deploy-auth` | Start auth stack (Authelia) |
 | `make deploy-networking` | Start networking stack, including the Cloudflare Tunnel (`NETWORKING_PROFILES=` to leave it out) |
 | `make deploy-automation` | Start automation stack |
 | `make deploy-all` | Start all stacks in dependency order |
@@ -208,6 +228,8 @@ make deploy-media                            # Just media services
 
 These steps require manual interaction and cannot be automated:
 
+0. **Authelia two-factor setup** — Open any admin page (e.g. `https://sonarr.domain`) and sign in with the Authelia username/password from `make generate-creds STACK=auth`. Authelia asks you to register a one-time-password app (e.g. 1Password, Google Authenticator). It has no email server, so the confirmation link is written to a file instead: `docker exec authelia cat /data/notification.txt`.
+
 1. **Jellyfin setup wizard** — Complete initial setup at `http://localhost:8096` (creates admin user, configures media libraries)
 
 2. **Prowlarr indexer configuration** — Add indexers manually in Prowlarr's UI (`http://localhost:9696`). Indexers require account credentials, captchas, and session tokens that can't be automated. Prowlarr will automatically sync configured indexers to Sonarr/Radarr via `make ansible-sync`.
@@ -231,15 +253,16 @@ After containers are running, `make ansible-sync` configures services via their 
 
 | Role | What it configures | Key actions |
 |------|--------------------|-------------|
-| **env_files** | All stacks | Renders `.env.j2` templates from vault variables (always runs first) |
-| **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`), syncs the listening port to the VPN forwarded port, requires login for every client outside the VPN namespace |
-| **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets |
-| **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist |
-| **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist |
+| **env_files** | All stacks | Renders `.env.j2` templates and Authelia's config from vault variables, and restarts Authelia if its config changed (always runs first; `make env` runs only this) |
+| **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`), syncs the listening port to the VPN forwarded port, skips its own login only for localhost and (behind Authelia) Traefik |
+| **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets, hands its login to Authelia when it's in front |
+| **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist, hands its login to Authelia (`external`) when Authelia is in front |
+| **radarr** | Radarr | Adds qBittorrent as download client, ensures root folders exist, hands its login to Authelia when it's in front |
 | **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
 | **cloudflare_dns** | Cloudflare DNS | Keeps the DNS-only `*.domain` record pointed at the server's LAN IP |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
+| **authelia** | *(health check)* | Waits for Authelia to be healthy. Its config is rendered by `env_files` |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
 | **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
 
@@ -286,12 +309,13 @@ Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credenti
 ### Adding a new service
 
 1. Add the service to the appropriate `docker-compose.yml`
-2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the shared wildcard certificate, so don't add a `certresolver` label
-3. If it needs secrets, add variables to `vault.yml` and the stack's `.env.j2` template
-4. Create an Ansible role if the service has a REST API to configure
-5. Add the role to `ansible/site.yml`
-6. Add an Uptime Kuma monitor in `ansible/group_vars/all/vars.yml`
-7. Add a DNS rewrite if it needs a subdomain (usually covered by the wildcard)
+2. Add Traefik labels for routing (`traefik.enable=true`, `Host()` rule, `websecure` entrypoint, port). TLS comes from the shared wildcard certificate, so don't add a `certresolver` label. For an admin page, also add `traefik.http.routers.<name>.middlewares=${ADMIN_MIDDLEWARES}` so it sits behind Authelia
+3. Publish admin ports on loopback only (`"127.0.0.1:8080:8080"`) so the LAN can't skip Authelia by using the port directly. Ansible still reaches it at `localhost`
+4. If it needs secrets, add variables to `vault.yml` and the stack's `.env.j2` template
+5. Create an Ansible role if the service has a REST API to configure
+6. Add the role to `ansible/site.yml`
+7. Add an Uptime Kuma monitor in `ansible/group_vars/all/vars.yml`
+8. Add a DNS rewrite if it needs a subdomain (usually covered by the wildcard)
 
 ### Recovering after a Docker volume loss
 
@@ -384,7 +408,7 @@ echo | openssl s_client -connect <server-lan-ip>:443 -servername seerr.domain 2>
 
 qBittorrent's listening port must match the port PIA forwards, which can change on reconnect. Gluetun's `VPN_PORT_FORWARDING_UP_COMMAND` pushes each new port to qBittorrent automatically, and `make ansible-sync` re-syncs it as a backstop. Check with `docker exec vpn cat /tmp/gluetun/forwarded_port` against qBittorrent's **Settings → Connection → Listening port**.
 
-The up command can skip logging in because Ansible enables qBittorrent's **Bypass authentication for clients on localhost**. Localhost here is the VPN container's network, shared only by Gluetun, qBittorrent, Prowlarr and FlareSolverr. Browsers, Traefik, Sonarr and Radarr connect from Docker addresses (e.g. `172.20.0.1`), so Ansible also turns off the subnet whitelist, and those clients must log in.
+The up command can skip logging in because Ansible enables qBittorrent's **Bypass authentication for clients on localhost**. Localhost here is the VPN container's network, shared only by Gluetun, qBittorrent, Prowlarr and FlareSolverr. The only other address that skips qBittorrent's login is Traefik's static IP (`172.20.0.202/32`), and only while Authelia is in front, because those requests already passed the Authelia login. Browsers on the LAN and the Mac itself (via the published port) connect from the Docker gateway `172.20.0.1`, and Sonarr/Radarr from their own IPs, so they still log in. Never whitelist the whole `172.20.0.0/16` subnet: it includes the gateway, so the whole LAN would skip the login.
 
 ### Docker API version mismatch
 
@@ -451,12 +475,17 @@ HomeLab/
 │   ├── docker-compose.yml    # Jellyfin, *arr, qBittorrent, VPN, Shelfmark, Audiobookshelf
 │   ├── .env.j2               # Jinja2 template for .env
 │   └── .env.example          # Placeholder documentation
+├── docker-auth-stack/
+│   ├── docker-compose.yml    # Authelia
+│   ├── authelia/             # configuration.yml.j2, users_database.yml.j2 (rendered copies gitignored)
+│   ├── .env.j2
+│   └── .env.example
 ├── docker-management-stack/
 │   ├── docker-compose.yml    # Portainer, Watchtower, Uptime Kuma, Dozzle
 │   ├── .env.j2
 │   └── .env.example
 ├── docker-networking-stack/
-│   ├── docker-compose.yml    # Traefik, AdGuard Home
+│   ├── docker-compose.yml    # Traefik, AdGuard Home, Cloudflared (tunnel profile)
 │   ├── .env.j2
 │   └── .env.example
 ├── docker-automation-stack/
@@ -473,6 +502,7 @@ HomeLab/
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
 │       ├── cloudflare_dns/   # Public DNS-only *.domain record → server LAN IP
+│       ├── authelia/         # Health check (config rendered by env_files)
 │       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders
