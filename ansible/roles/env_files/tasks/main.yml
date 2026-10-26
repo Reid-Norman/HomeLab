@@ -10,6 +10,14 @@
     dest: "{{ management_stack_path }}/.env"
     mode: "0600"
 
+# Homepage's widget keys and logins, kept out of the shared management .env
+- name: Generate homepage.env for docker-management-stack
+  ansible.builtin.template:
+    src: "{{ management_stack_path }}/homepage.env.j2"
+    dest: "{{ management_stack_path }}/homepage.env"
+    mode: "0600"
+  notify: Restart Homepage
+
 - name: Generate .env for docker-networking-stack
   ansible.builtin.template:
     src: "{{ networking_stack_path }}/.env.j2"

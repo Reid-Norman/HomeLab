@@ -1,0 +1,23 @@
+# Homepage settings (https://gethomepage.dev/configs/settings/)
+# Values like {{HOMEPAGE_VAR_DOMAIN}} are filled from the stack's .env at runtime
+
+title: HomeLab
+theme: dark
+color: slate
+headerStyle: clean
+statusStyle: dot
+hideVersion: true
+
+layout:
+  Media:
+    style: row
+    columns: 3
+  Downloads:
+    style: row
+    columns: 4
+  Network:
+    style: row
+    columns: 3
+  Management:
+    style: row
+    columns: 4

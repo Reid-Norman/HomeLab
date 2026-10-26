@@ -12,11 +12,11 @@ Five independent Docker Compose stacks at the repo root, each with its own `dock
 
 - **docker-networking-stack/** — Traefik, AdGuard Home, Cloudflared (optional `tunnel` profile)
 - **docker-auth-stack/** — Authelia (single sign-on with 2FA for admin pages; config rendered from `authelia/*.j2`)
-- **docker-management-stack/** — Portainer, Watchtower, Uptime Kuma, Dozzle
+- **docker-management-stack/** — Homepage (start page at `home.domain`; tiles in `homepage/*.yaml`), Portainer, Watchtower, Uptime Kuma, Dozzle
 - **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
-Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, homepage, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
 
 ## Common Commands
 
@@ -86,7 +86,7 @@ Traefik  (reverse proxy + TLS termination)
 ## When Modifying Docker Compose Files
 
 - All services use `restart: unless-stopped`
-- Services load config from `env_file: [.env]`
+- Services load config from `env_file: [.env]`. Exception: Homepage loads only `homepage.env` (its widget API keys/logins), so the rest of the management stack never gets them
 - Use named volumes for persistent data (e.g., `sonarr-config:/config`)
 - LinuxServer.io images expect `PUID`, `PGID`, and `TZ` environment variables
 - All stacks must include the `homelab-network` external network
@@ -96,7 +96,7 @@ Traefik  (reverse proxy + TLS termination)
 
 - Never commit .env files or vault.yml with real values
 - Always add new services to both docker-compose.yml AND the Ansible role
-- All services must have a corresponding Uptime Kuma monitor in vars.yml
+- All services must have a corresponding Uptime Kuma monitor in vars.yml, and a tile in `docker-management-stack/homepage/services.yaml` (`siteMonitor` uses the container hostname, `href` the `https://<name>.{{HOMEPAGE_VAR_DOMAIN}}` URL)
 - New stacks must follow the existing naming convention: docker-X-stack
 - Always use named volumes, never hardcoded host paths. Exception: read-only config files rendered by Ansible into the stack directory (Authelia's `configuration.yml`/`users_database.yml`), mounted with a relative path and gitignored
 - Secrets go in Ansible Vault, never in vars.yml

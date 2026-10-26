@@ -1,0 +1,13 @@
+# Header widgets (https://gethomepage.dev/widgets/info/)
+- resources:
+    cpu: true
+    memory: true
+    label: Docker
+- datetime:
+    text_size: md
+    format:
+      dateStyle: medium
+      timeStyle: short
+- search:
+    provider: duckduckgo
+    target: _blank
