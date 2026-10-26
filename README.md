@@ -61,12 +61,13 @@ All stacks share the `homelab-network` Docker network (`172.20.0.0/16`), enablin
 
 ## Accessing Services
 
-There are two ways in:
+There are three ways in:
 
 | Path | Hostnames | How it works |
 |------|-----------|--------------|
 | **Public** (Cloudflare Tunnel) | `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access), `audiobooks.domain` | `cloudflared` connects out to Cloudflare. No ports are opened on the router, and Cloudflare serves HTTPS |
-| **Home network** | All hostnames below | A public DNS-only record `*.domain` points to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate. That IP is private, so these names only connect from inside the home network |
+| **Home network** | All hostnames below | A public DNS-only record `*.domain` points to the server's LAN IP, and Traefik routes by hostname using the wildcard certificate. That IP is private, so these names only connect from inside the home network (or over Tailscale) |
+| **Tailscale** (away from home) | All hostnames below | Your devices join a private Tailscale network, and the server routes its LAN IP to them. See [Remote access](#remote-access-tailscale) |
 
 The `cloudflare_dns` role creates the `*.domain` record (Cloudflare, *DNS only*, not proxied) on every `make ansible-sync`. Because it's public DNS, every device finds these names with whatever DNS it already uses, so nothing on the network depends on the server being up. The tunnel hostnames are more specific records, so they still go through the tunnel. Give the server a DHCP reservation so its IP doesn't change after a reboot.
 
@@ -106,6 +107,10 @@ Admin pages sit behind one Authelia login with two-factor: Sonarr, Radarr, Prowl
 - **No bypass through ports:** admin ports are published on `127.0.0.1` only, so the Mac (and Ansible) can still use `http://localhost:<port>`, but other devices can't skip Authelia that way.
 - **If Authelia is down,** admin pages return 404 instead of opening: they fail closed.
 
+#### Running without the auth stack
+
+Set `traefik_admin_middlewares: "traefik-auth@docker"` in `vars.yml`, then run `make env`, redeploy the stacks, and `make ansible-sync`. Admin pages then use basic auth with the Traefik dashboard password (`vault_traefik_dashboard_password`). The Sonarr/Radarr/Prowlarr roles switch those apps back to their own login form, and qBittorrent stops trusting Traefik's IP.
+
 ### Start page (Homepage)
 
 `https://home.domain` is the start page: one tile per service, grouped into Media, Downloads, Network and Management, with a status dot on each and live stats for Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent and AdGuard. It sits behind Authelia like the other admin pages, and logging in at `auth.domain` directly lands you there (`authelia_default_redirection_url` in `vars.yml`).
@@ -115,9 +120,30 @@ Admin pages sit behind one Authelia login with two-factor: Sonarr, Radarr, Prowl
 - **No Docker socket:** status dots come from HTTP checks to each container (like Uptime Kuma), so Homepage can't read other containers' settings. Services you haven't deployed just show a red dot.
 - **Jellyfin widget:** needs an API key. Create one in Jellyfin (*Dashboard → API Keys*), save it as `vault_jellyfin_api_key` with `make vault-edit`, then `make env && make deploy-management`. The Jellyfin role uses the same key to install plugins.
 
-#### Running without the auth stack
+### Remote access (Tailscale)
 
-Set `traefik_admin_middlewares: "traefik-auth@docker"` in `vars.yml`, then run `make env`, redeploy the stacks, and `make ansible-sync`. Admin pages then use basic auth with the Traefik dashboard password (`vault_traefik_dashboard_password`). The Sonarr/Radarr/Prowlarr roles switch those apps back to their own login form, and qBittorrent stops trusting Traefik's IP.
+Away from home, admin pages work over [Tailscale](https://tailscale.com), a private network between your own devices. No router ports are opened.
+
+The server advertises its own LAN IP (`192.168.x.x/32`) to your tailnet as a *subnet route*. The public `*.domain` record already points at that IP, so the same `https://sonarr.domain` links work at home and away, with no extra DNS setup. Authelia still guards every admin page; Tailscale only decides who can reach the server at all.
+
+**One-time setup on the server** (needs sudo and a browser login):
+
+```bash
+brew install tailscale                       # or: brew upgrade tailscale
+sudo brew services start tailscale           # starts at boot, even before anyone logs in
+sudo tailscale up --advertise-routes=<server LAN IP>/32 --accept-dns=false
+```
+
+Then, in the [admin console](https://login.tailscale.com/admin/machines):
+
+1. Open the server, **Edit route settings**, and approve the `/32` route.
+2. On the same menu, **Disable key expiry**. Otherwise the server drops off the tailnet every 180 days.
+
+On each phone or laptop, install Tailscale, sign in with the same account and turn it on. Phones use subnet routes by default. On a laptop, check that *Use Tailscale subnets* is on (on Linux: `sudo tailscale set --accept-routes`).
+
+- **Use one Tailscale install on the server.** The Homebrew daemon starts at boot without a login, which suits a server. The Tailscale app from the App Store or website does the same job but only runs while someone is logged in, and running both at once makes them fight over the same socket. Remove the app (quit it, delete it from Applications, remove its network extension in *System Settings → General → Login Items & Extensions*, and delete `/usr/local/bin/tailscale` if it was installed by the app).
+- **`--accept-dns=false`** keeps the server's own DNS unchanged. Traefik's certificate renewals depend on it (see [DNS challenge fails](#dns-challenge-fails-traefik-cant-get-tls-certificates)).
+- **Check it:** `make ansible-sync` runs the `tailscale` role, which reports whether Tailscale is logged in, whether the route is approved, and whether key expiry is still on. Then, on your phone with Wi-Fi off and Tailscale on, open `https://home.domain`.
 
 ## Prerequisites
 
@@ -270,6 +296,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | **seerr** | Seerr | Connects Radarr + Sonarr for media requests (skips if setup wizard not completed) |
 | **recyclarr** | *(informational)* | Recyclarr self-manages via its own YAML config — no API to call |
 | **cloudflare_dns** | Cloudflare DNS | Keeps the DNS-only `*.domain` record pointed at the server's LAN IP |
+| **tailscale** | *(status check)* | Reports whether Tailscale is logged in, routes the server's LAN IP, and has key expiry off. Never fails the run |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
 | **authelia** | *(health check)* | Waits for Authelia to be healthy. Its config is rendered by `env_files` |
 | **homepage** | *(health check)* | Waits for Homepage to be healthy. Its tiles are committed YAML, its keys rendered by `env_files` |
@@ -516,6 +543,7 @@ HomeLab/
 │   └── roles/
 │       ├── env_files/        # Renders .env.j2 → .env
 │       ├── cloudflare_dns/   # Public DNS-only *.domain record → server LAN IP
+│       ├── tailscale/        # Status check for remote access
 │       ├── authelia/         # Health check (config rendered by env_files)
 │       ├── homepage/         # Health check (tiles are committed YAML)
 │       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth

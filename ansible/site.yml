@@ -9,6 +9,7 @@
       tags: [env]
     - role: cloudflare_tunnel
     - role: cloudflare_dns
+    - role: tailscale
     - role: qbittorrent
     - role: prowlarr
     - role: sonarr
