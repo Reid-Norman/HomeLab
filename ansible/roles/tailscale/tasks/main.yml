@@ -1,5 +1,5 @@
 # Tailscale runs on the host (Homebrew tailscaled), not in Docker, and its setup
-# needs sudo plus a browser login, so it's done by hand once (README: Remote
+# needs sudo plus a browser login, so it's done by hand once (docs/access.md: Remote
 # access). This role only checks it and says what's missing. It never fails the
 # play: remote access is optional
 - name: Read Tailscale status
@@ -26,7 +26,7 @@
     msg: >-
       {% if tailscale_status.rc != 0 %}
       Tailscale not installed or not running (optional). Without it, *.{{ vault_domain }}
-      only works on the home network. Setup: README, Remote access
+      only works on the home network. Setup: https://reid-norman.github.io/HomeLab/access/#remote-access-tailscale
       {% elif tailscale_state != 'Running' %}
       Tailscale is {{ tailscale_state }}. Log in: sudo tailscale up
       --advertise-routes={{ tailscale_advertise_routes | join(',') }} --accept-dns=false

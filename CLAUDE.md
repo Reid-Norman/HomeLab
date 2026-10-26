@@ -13,10 +13,14 @@ Five independent Docker Compose stacks at the repo root, each with its own `dock
 - **docker-networking-stack/** — Traefik, AdGuard Home, Cloudflared (optional `tunnel` profile)
 - **docker-auth-stack/** — Authelia (single sign-on with 2FA for admin pages; config rendered from `authelia/*.j2`)
 - **docker-management-stack/** — Homepage (start page at `home.domain`; tiles in `homepage/*.yaml`), Portainer, Watchtower, Uptime Kuma, Dozzle
-- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
+- **docker-media-stack/** — Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf
 - **docker-automation-stack/** — Semaphore (Ansible UI)
 
 Ansible config lives in `ansible/` with roles for: env_files, cloudflare_tunnel, cloudflare_dns, tailscale, qbittorrent, prowlarr, sonarr, radarr, jellyfin, seerr, recyclarr, adguard, traefik, authelia, homepage, uptime_kuma, semaphore. Main playbook is `ansible/site.yml`. Non-secret vars in `ansible/group_vars/all/vars.yml`, encrypted secrets in `ansible/group_vars/all/vault.yml`.
+
+## Documentation
+
+The README is a short intro; the full docs are an MkDocs Material site in `docs/` (published to GitHub Pages by `.github/workflows/docs.yml`). When a change affects behaviour, update the matching page in `docs/` (and add an ADR in `docs/decisions/` for a non-obvious decision). Docs use `example.com` and `192.168.1.100` only, never the real domain or IP. Check with `mkdocs build --strict` (`pip install -r docs/requirements.txt`).
 
 ## Common Commands
 

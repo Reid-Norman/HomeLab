@@ -1,0 +1,67 @@
+site_name: HomeLab
+site_description: A self-hosted media server run as code. Docker Compose, Ansible, single sign-on and zero open ports
+site_url: https://reid-norman.github.io/HomeLab/
+repo_url: https://github.com/Reid-Norman/HomeLab
+repo_name: Reid-Norman/HomeLab
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - Access and security: access.md
+  - Services: services.md
+  - Getting started: getting-started.md
+  - Operations: operations.md
+  - Troubleshooting: troubleshooting.md
+  - How this was built: how-it-was-built.md
+  - Decisions:
+      - decisions/index.md
+      - decisions/0001-traefik-docker-labels.md
+      - decisions/0002-seerr-migration.md
+      - decisions/0003-qbittorrent-port-sync-and-auth.md
+      - decisions/0004-no-desktop-vpn-on-server.md
+      - decisions/0005-one-wildcard-certificate.md
+      - decisions/0006-public-dns-only-wildcard.md
+      - decisions/0007-stack-layout.md
+      - decisions/0008-authelia-single-sign-on.md
+      - decisions/0009-homepage-without-docker-socket.md
+      - decisions/0010-tailscale-remote-access.md
