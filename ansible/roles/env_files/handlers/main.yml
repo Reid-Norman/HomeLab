@@ -9,3 +9,15 @@
   args:
     executable: /bin/bash
   changed_when: true
+
+# Homepage reads its environment (widget keys) only at startup, e.g. after
+# make extract-keys fills in the *arr keys. Same running-only rule as above
+- name: Restart Homepage
+  ansible.builtin.shell: |
+    set -o pipefail
+    if docker ps --quiet --filter name=^homepage$ | grep -q .; then
+      docker compose --project-directory "{{ management_stack_path }}" up -d --force-recreate homepage
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: true

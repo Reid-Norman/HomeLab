@@ -33,3 +33,6 @@ ansible/group_vars/all/vault.yml
 # Authelia config rendered from .j2 by Ansible (users file contains password hashes)
 docker-auth-stack/authelia/configuration.yml
 docker-auth-stack/authelia/users_database.yml
+
+# Homepage widget keys and logins, rendered from homepage.env.j2 by Ansible
+docker-management-stack/homepage.env

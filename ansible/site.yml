@@ -19,5 +19,6 @@
     - role: adguard
     - role: traefik
     - role: authelia
+    - role: homepage
     - role: uptime_kuma
     - role: semaphore

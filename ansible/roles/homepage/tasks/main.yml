@@ -1,0 +1,23 @@
+# Homepage is configured declaratively (docker-management-stack/homepage/*.yaml,
+# keys from homepage.env). This role only checks that it's up. Its port isn't
+# published, so the check runs inside the container
+- name: Check if Homepage is deployed
+  ansible.builtin.command: docker ps --quiet --filter name=^homepage$
+  register: homepage_container
+  changed_when: false
+
+- name: Wait for Homepage
+  ansible.builtin.command: docker exec homepage wget -qO- http://127.0.0.1:3000/api/healthcheck
+  register: homepage_health
+  changed_when: false
+  retries: 12
+  delay: 10
+  until: homepage_health.rc == 0
+  when: homepage_container.stdout | length > 0
+
+- name: Homepage status
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Homepage is up at https://home.' ~ vault_domain
+      if homepage_container.stdout | length > 0 else
+      'Homepage not deployed (make deploy-management).' }}

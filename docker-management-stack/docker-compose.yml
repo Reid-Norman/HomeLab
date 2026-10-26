@@ -73,6 +73,31 @@ services:
       - "traefik.http.routers.dozzle.middlewares=${ADMIN_MIDDLEWARES}"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
 
+  # Start page at home.${DOMAIN}. Config is committed in ./homepage (read-only).
+  # API keys and logins come from homepage.env, which only this container loads
+  # (not .env, so the other services here never see them). No Docker socket:
+  # status dots come from siteMonitor checks, so Homepage can't read other containers
+  homepage:
+    image: ghcr.io/gethomepage/homepage:v2
+    container_name: homepage
+    restart: unless-stopped
+    env_file:
+      - homepage.env
+    environment:
+      # homepage:3000 lets Uptime Kuma check it by container name
+      - HOMEPAGE_ALLOWED_HOSTS=home.${DOMAIN},homepage:3000
+      - LOG_TARGETS=stdout
+    volumes:
+      - ./homepage:/app/config:ro
+    networks:
+      - homelab-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`home.${DOMAIN}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.middlewares=${ADMIN_MIDDLEWARES}"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+
 volumes:
   portainer-data:
   uptime-kuma-data:

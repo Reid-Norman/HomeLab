@@ -32,6 +32,9 @@ session:
   cookies:
     - domain: "{{ vault_domain }}"
       authelia_url: "https://auth.{{ vault_domain }}"
+{% if authelia_default_redirection_url | default('') %}
+      default_redirection_url: "{{ authelia_default_redirection_url }}"
+{% endif %}
 
 # Brute-force protection: 3 failed logins within 2 minutes bans the user for 10
 regulation:

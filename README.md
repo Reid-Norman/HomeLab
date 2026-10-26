@@ -19,7 +19,7 @@ Self-hosted media and infrastructure automation. Docker Compose provisions conta
 |-------|----------|---------|
 | **docker-networking-stack** | Traefik, AdGuard Home, Cloudflared *(optional `tunnel` profile)* | How traffic gets in: reverse proxy, TLS, security headers, DNS, public tunnel |
 | **docker-auth-stack** | Authelia | Who is allowed in: one login with two-factor for every admin page |
-| **docker-management-stack** | Portainer, Watchtower, Uptime Kuma, Dozzle | Watching and running the server: containers, monitoring, logs, auto-updates |
+| **docker-management-stack** | Homepage, Portainer, Watchtower, Uptime Kuma, Dozzle | Watching and running the server: start page, containers, monitoring, logs, auto-updates |
 | **docker-media-stack** | Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, Seerr, Recyclarr, FlareSolverr, Gluetun VPN, Recommendarr, Shelfmark, Audiobookshelf | Media acquisition, streaming, and audiobooks |
 | **docker-automation-stack** | Semaphore | Ansible UI for running playbooks from a browser |
 
@@ -29,7 +29,7 @@ Each stack has one purpose, and dependencies only point down: a stack may rely o
 
 1. **networking**: the foundation. Every other stack's routes go through its Traefik. It doesn't depend on any other stack, so it's reusable on its own as a reverse proxy + DNS + tunnel setup.
 2. **auth**: Authelia, the login in front of admin pages. Needs networking (Traefik). Optional: see [Running without the auth stack](#running-without-the-auth-stack).
-3. **management**: tools that look after the other stacks. Optional; nothing depends on it.
+3. **management**: tools that look after the other stacks, including the Homepage start page. Optional; nothing depends on it. Homepage lives here rather than in networking because its widgets need every app's API keys, which don't belong in the foundation stack.
 4. **media**: the apps. Needs networking only for its `*.domain` URLs; on direct ports it runs alone. No Cloudflare account needed, because the tunnel lives in networking.
 5. **automation**: Semaphore, which runs the Ansible playbooks. Optional.
 
@@ -87,7 +87,7 @@ AdGuard Home's `*.domain` rewrite still exists for devices that choose AdGuard a
 | Prowlarr | `prowlarr.domain` | AdGuard Home | `adguard.domain` |
 | qBittorrent | `qbittorrent.domain` | Traefik dashboard | `traefik.domain` |
 | Shelfmark | `shelfmark.domain` | Audiobookshelf | `audiobookshelf.domain` |
-| Recommendarr | `recommendarr.domain` | | |
+| Recommendarr | `recommendarr.domain` | Homepage (start page) | `home.domain` |
 
 ### Recommended Cloudflare settings
 
@@ -105,6 +105,15 @@ Admin pages sit behind one Authelia login with two-factor: Sonarr, Radarr, Prowl
 - **Not behind Authelia:** Jellyfin, Seerr and Audiobookshelf. Their TV and phone apps talk to the API directly and can't get past a login page. They keep their own logins.
 - **No bypass through ports:** admin ports are published on `127.0.0.1` only, so the Mac (and Ansible) can still use `http://localhost:<port>`, but other devices can't skip Authelia that way.
 - **If Authelia is down,** admin pages return 404 instead of opening: they fail closed.
+
+### Start page (Homepage)
+
+`https://home.domain` is the start page: one tile per service, grouped into Media, Downloads, Network and Management, with a status dot on each and live stats for Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent and AdGuard. It sits behind Authelia like the other admin pages, and logging in at `auth.domain` directly lands you there (`authelia_default_redirection_url` in `vars.yml`).
+
+- **Config is code:** the tiles live in `docker-management-stack/homepage/*.yaml`, committed and mounted read-only. Edit them and refresh; no restart needed. Values like `{{HOMEPAGE_VAR_DOMAIN}}` are filled in at runtime.
+- **Keys stay server-side:** widget keys and logins are in `homepage.env` (rendered from `homepage.env.j2`, gitignored), which only the Homepage container loads. Homepage calls the APIs itself, so keys never reach the browser.
+- **No Docker socket:** status dots come from HTTP checks to each container (like Uptime Kuma), so Homepage can't read other containers' settings. Services you haven't deployed just show a red dot.
+- **Jellyfin widget:** needs an API key. Create one in Jellyfin (*Dashboard → API Keys*), save it as `vault_jellyfin_api_key` with `make vault-edit`, then `make env && make deploy-management`. The Jellyfin role uses the same key to install plugins.
 
 #### Running without the auth stack
 
@@ -253,7 +262,7 @@ After containers are running, `make ansible-sync` configures services via their 
 
 | Role | What it configures | Key actions |
 |------|--------------------|-------------|
-| **env_files** | All stacks | Renders `.env.j2` templates and Authelia's config from vault variables, and restarts Authelia if its config changed (always runs first; `make env` runs only this) |
+| **env_files** | All stacks | Renders `.env.j2` templates and Authelia's config from vault variables, and restarts Authelia or Homepage if their config changed (always runs first; `make env` runs only this) |
 | **qbittorrent** | qBittorrent | Sets download path, max seeding time (10 days), creates torrent categories (`tv-sonarr`, `radarr`, `audiobooks`), syncs the listening port to the VPN forwarded port, skips its own login only for localhost and (behind Authelia) Traefik |
 | **prowlarr** | Prowlarr | Adds Sonarr + Radarr as full-sync application targets, hands its login to Authelia when it's in front |
 | **sonarr** | Sonarr | Adds qBittorrent as download client, ensures root folders exist, hands its login to Authelia (`external`) when Authelia is in front |
@@ -263,6 +272,7 @@ After containers are running, `make ansible-sync` configures services via their 
 | **cloudflare_dns** | Cloudflare DNS | Keeps the DNS-only `*.domain` record pointed at the server's LAN IP |
 | **adguard** | AdGuard Home | Configures DNS rewrites for wildcard domain resolution and sets encrypted (DNS-over-HTTPS) upstream resolvers |
 | **authelia** | *(health check)* | Waits for Authelia to be healthy. Its config is rendered by `env_files` |
+| **homepage** | *(health check)* | Waits for Homepage to be healthy. Its tiles are committed YAML, its keys rendered by `env_files` |
 | **traefik** | *(informational)* | Routing is declarative via Docker labels — no API config needed |
 | **uptime_kuma** | Uptime Kuma | Creates HTTP monitors for all services; removes monitors listed in `uptime_kuma_retired_monitors` |
 
@@ -315,7 +325,8 @@ Everything else (qBittorrent password, AdGuard credentials, Uptime Kuma credenti
 5. Create an Ansible role if the service has a REST API to configure
 6. Add the role to `ansible/site.yml`
 7. Add an Uptime Kuma monitor in `ansible/group_vars/all/vars.yml`
-8. Add a DNS rewrite if it needs a subdomain (usually covered by the wildcard)
+8. Add a tile to `docker-management-stack/homepage/services.yaml`
+9. Add a DNS rewrite if it needs a subdomain (usually covered by the wildcard)
 
 ### Recovering after a Docker volume loss
 
@@ -481,7 +492,10 @@ HomeLab/
 │   ├── .env.j2
 │   └── .env.example
 ├── docker-management-stack/
-│   ├── docker-compose.yml    # Portainer, Watchtower, Uptime Kuma, Dozzle
+│   ├── docker-compose.yml    # Homepage, Portainer, Watchtower, Uptime Kuma, Dozzle
+│   ├── homepage/             # Start page tiles and settings (committed, mounted read-only)
+│   ├── homepage.env.j2       # Homepage widget keys (rendered homepage.env gitignored)
+│   ├── homepage.env.example
 │   ├── .env.j2
 │   └── .env.example
 ├── docker-networking-stack/
@@ -503,6 +517,7 @@ HomeLab/
 │       ├── env_files/        # Renders .env.j2 → .env
 │       ├── cloudflare_dns/   # Public DNS-only *.domain record → server LAN IP
 │       ├── authelia/         # Health check (config rendered by env_files)
+│       ├── homepage/         # Health check (tiles are committed YAML)
 │       ├── qbittorrent/      # Download path, seeding time, categories, VPN port sync, auth
 │       ├── prowlarr/         # App sync to Sonarr/Radarr
 │       ├── sonarr/           # Download client, root folders

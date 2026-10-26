@@ -23,6 +23,10 @@ traefik_admin_middlewares: "authelia@docker"
 # Only applied when traefik_admin_middlewares includes authelia
 arr_external_auth: true
 
+# Where Authelia sends you after logging in at auth.<domain> directly (not via a
+# protected page). Empty to stay on the Authelia portal
+authelia_default_redirection_url: "https://home.{{ vault_domain }}"
+
 # Prowlarr URL (accessed from within VPN namespace)
 prowlarr_url: "http://vpn:9696"
 
@@ -142,6 +146,9 @@ uptime_kuma_monitors:
   - name: "Dozzle"
     type: http
     url: "http://dozzle:8080"
+  - name: "Homepage"
+    type: http
+    url: "http://homepage:3000/api/healthcheck"
   - name: "Audiobookshelf"
     type: http
     url: "http://audiobookshelf:80"

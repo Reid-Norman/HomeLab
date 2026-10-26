@@ -1,0 +1,122 @@
+# Service tiles (https://gethomepage.dev/configs/services/)
+# - href: the address you open, always https://<name>.<domain> through Traefik
+# - siteMonitor: the status dot, checked from inside Docker by container name
+#   (like the Uptime Kuma monitors). Services you haven't deployed show as down
+# - widget: live stats. Homepage calls the API server-side, so keys never reach
+#   the browser. Keys and logins are HOMEPAGE_VAR_* values from the stack's .env
+
+- Media:
+    - Jellyfin:
+        icon: jellyfin.svg
+        href: https://jellyfin.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Movies and TV
+        siteMonitor: http://jellyfin:8096
+        widget:
+          type: jellyfin
+          url: http://jellyfin:8096
+          key: "{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
+          enableBlocks: true
+          enableNowPlaying: true
+    - Seerr:
+        icon: jellyseerr.svg
+        href: https://seerr.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Requests
+        siteMonitor: http://seerr:5055
+    - Audiobookshelf:
+        icon: audiobookshelf.svg
+        href: https://audiobookshelf.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Audiobooks
+        siteMonitor: http://audiobookshelf:80
+
+- Downloads:
+    - Sonarr:
+        icon: sonarr.svg
+        href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
+        description: TV shows
+        siteMonitor: http://sonarr:8989
+        widget:
+          type: sonarr
+          url: http://sonarr:8989
+          key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
+    - Radarr:
+        icon: radarr.svg
+        href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Movies
+        siteMonitor: http://radarr:7878
+        widget:
+          type: radarr
+          url: http://radarr:7878
+          key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
+    - Prowlarr:
+        icon: prowlarr.svg
+        href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Indexers
+        siteMonitor: http://vpn:9696
+        widget:
+          type: prowlarr
+          url: http://vpn:9696
+          key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
+    - qBittorrent:
+        icon: qbittorrent.svg
+        href: https://qbittorrent.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Downloads (over the VPN)
+        siteMonitor: http://vpn:5080
+        widget:
+          type: qbittorrent
+          url: http://vpn:5080
+          username: "{{HOMEPAGE_VAR_QBITTORRENT_USER}}"
+          password: "{{HOMEPAGE_VAR_QBITTORRENT_PASS}}"
+    - Shelfmark:
+        icon: mdi-book-search
+        href: https://shelfmark.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Audiobook search
+        siteMonitor: http://shelfmark:8084
+    - Recommendarr:
+        icon: mdi-robot-happy
+        href: https://recommendarr.{{HOMEPAGE_VAR_DOMAIN}}
+        description: AI recommendations (optional)
+        siteMonitor: http://recommendarr:3000
+
+- Network:
+    - Traefik:
+        icon: traefik.svg
+        href: https://traefik.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Reverse proxy
+        siteMonitor: http://traefik:80
+    - AdGuard Home:
+        icon: adguard-home.svg
+        href: https://adguard.{{HOMEPAGE_VAR_DOMAIN}}
+        description: DNS
+        siteMonitor: http://adguardhome:80
+        widget:
+          type: adguard
+          url: http://adguardhome:80
+          username: "{{HOMEPAGE_VAR_ADGUARD_USER}}"
+          password: "{{HOMEPAGE_VAR_ADGUARD_PASS}}"
+    - Authelia:
+        icon: authelia.svg
+        href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Single sign-on
+        siteMonitor: http://authelia:9091/api/health
+
+- Management:
+    - Portainer:
+        icon: portainer.svg
+        href: https://portainer.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Containers
+        siteMonitor: http://portainer:9000
+    - Uptime Kuma:
+        icon: uptime-kuma.svg
+        href: https://uptime-kuma.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Monitoring
+        siteMonitor: http://uptime-kuma:3001
+    - Dozzle:
+        icon: dozzle.svg
+        href: https://dozzle.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Logs
+        siteMonitor: http://dozzle:8080
+    - Semaphore:
+        icon: semaphore.svg
+        href: https://semaphore.{{HOMEPAGE_VAR_DOMAIN}}
+        description: Ansible runs
+        siteMonitor: http://semaphore:3000/api/ping
