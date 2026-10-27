@@ -18,7 +18,7 @@ These docs are both the operating manual and a write-up of how the system was de
 - **One login with two-factor** (Authelia) in front of every admin page, failing closed if Authelia is down. Admin ports listen on loopback only, so the LAN can't skip it.
 - **TLS everywhere** from one Let's Encrypt wildcard certificate (DNS-01), plus HSTS and security headers on every route.
 - **Secrets never touch git:** Ansible Vault is the single source of truth, `.env` files are generated with mode 0600, and CI runs gitleaks on every push.
-- **Least privilege:** torrent traffic is confined to a VPN network namespace; the start page has no Docker socket and its API keys are loaded by that one container only.
+- **Least privilege:** torrent traffic is confined to a VPN network namespace; the start page has no Docker socket and its API keys are loaded by that one container only; every container runs with `no-new-privileges`, enforced in CI.
 
 **Modularity**
 
@@ -27,8 +27,8 @@ These docs are both the operating manual and a write-up of how the system was de
 
 **Engineering process**
 
-- Every change lands as a reviewed pull request with lint, Ansible checks, shellcheck and secret scanning in CI.
-- Ten [architecture decision records](decisions/index.md) explain the non-obvious choices, including the incidents that led to them.
+- Every change lands as a reviewed pull request with lint, Ansible checks, shellcheck, secret scanning and a container-hardening scan in CI, and a weekly scan reports vulnerable images.
+- Eleven [architecture decision records](decisions/index.md) explain the non-obvious choices, including the incidents that led to them.
 - Built with an AI pair programmer under human review: see [How this was built](how-it-was-built.md).
 
 ## At a glance

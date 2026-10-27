@@ -1,0 +1,61 @@
+# Container hardening rules for the docker-*-stack compose files.
+# Adapted from Semgrep's p/docker-compose registry rules, which only match
+# files with a top-level `version:` key (obsolete in Compose v2, absent here),
+# so they silently find nothing. Suppress a finding with
+# `# nosemgrep: <rule-id>` on the flagged line plus the reason it's needed.
+rules:
+  - id: docker-socket-mount
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Mounting the Docker socket gives this container root on the host.
+      Only mount it where the service can't work without it, read-only where possible.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern-regex: (/var)?/run/docker\.sock:/[^\s"']*
+
+  - id: privileged-service
+    languages: [yaml]
+    severity: ERROR
+    message: Privileged containers have every capability and all host devices. Grant specific cap_add/devices instead.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern: "privileged: true"
+
+  - id: no-new-privileges
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Service $SERVICE doesn't set `security_opt: [no-new-privileges:true]`,
+      so a process inside can gain privileges through setuid binaries.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern: |
+          $SERVICE:
+            ...
+            image: ...
+      - pattern-not: |
+          $SERVICE:
+            ...
+            image: ...
+            ...
+            security_opt:
+              - ...
+              - no-new-privileges:true
+      - focus-metavariable: $SERVICE
+
+  - id: confinement-disabled
+    languages: [yaml]
+    severity: ERROR
+    message: Disabling seccomp, AppArmor or SELinux removes the kernel sandbox around this container.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern-regex: (seccomp|apparmor)[:=]unconfined|label[:=]disable
