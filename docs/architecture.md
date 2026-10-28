@@ -43,20 +43,22 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph public [Public]
-        user((Anyone)) --> cf[Cloudflare edge<br/>HTTPS, Access]
+        user((Anyone)) --> cf[Cloudflare edge<br/>HTTPS, WAF]
         cf --> tunnel[cloudflared<br/>outbound only]
     end
     subgraph home [Home network or Tailscale]
         dev((Your device)) -->|"*.example.com → 192.168.1.100<br/>public DNS-only record"| traefik
     end
-    tunnel --> apps["Jellyfin · Seerr · Audiobookshelf"]
+    tunnel --> apps["Jellyfin · Audiobookshelf"]
+    apps -. "Moonbase plugin" .-> seerr[Seerr]
     traefik[Traefik :443<br/>wildcard cert, HSTS] --> apps
+    traefik --> seerr
     traefik --> fa{Authelia<br/>forward auth}
     fa -->|logged in + 2FA| admin[Admin pages]
     fa -->|not logged in| login[auth.example.com]
 ```
 
-- **Public, through Cloudflare Tunnel:** only Jellyfin, Seerr and Audiobookshelf. `cloudflared` connects out to Cloudflare, so the router has no open ports.
+- **Public, through Cloudflare Tunnel:** only Jellyfin and Audiobookshelf. `cloudflared` connects out to Cloudflare, so the router has no open ports. Family request through Jellyfin's Moonbase plugin, which calls Seerr inside the Docker network ([ADR 0012](decisions/0012-family-requests-through-moonfin.md)).
 - **Home network:** a public, DNS-only `*.domain` record points at the server's private IP, so every device finds these names with the DNS it already uses ([ADR 0006](decisions/0006-public-dns-only-wildcard.md)).
 - **Away from home:** Tailscale routes the server's private IP to your own devices, so the same URLs work anywhere ([ADR 0010](decisions/0010-tailscale-remote-access.md)).
 

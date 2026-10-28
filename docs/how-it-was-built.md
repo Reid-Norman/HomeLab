@@ -53,3 +53,4 @@ The owner reviewed and merged every pull request, and did every step that needed
 | #8 | Homepage start page |
 | #9 | Tailscale remote access |
 | #10 | This docs site |
+| #12 | Family requests inside the Moonfin app; Seerr off the internet |

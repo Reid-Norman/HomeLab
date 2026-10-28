@@ -13,8 +13,8 @@
 | **qbittorrent** | Download path, seeding limit (10 days), categories, listening port synced to the VPN's forwarded port, and the narrow login bypass |
 | **prowlarr** | Adds Sonarr and Radarr as full-sync apps; hands its login to Authelia |
 | **sonarr** / **radarr** | qBittorrent as download client, root folders; hand their login to Authelia |
-| **jellyfin** | Plugin repositories and plugins (skips without an API key) |
-| **seerr** | Connects Radarr and Sonarr (skips until the setup wizard is done) |
+| **jellyfin** | Plugin repositories and plugins, and points the Moonbase plugin at Seerr (skips without an API key) |
+| **seerr** | Connects Radarr and Sonarr; new users get request + auto-approve with weekly limits; links point at the public Jellyfin (skips until the setup wizard is done) |
 | **recyclarr** | Informational placeholder; Recyclarr isn't deployed |
 | **adguard** | `*.domain` rewrite and DNS-over-HTTPS upstreams |
 | **traefik** | Informational: routing is Docker labels |
@@ -93,7 +93,7 @@ docker run --rm -v docker-media-stack_jellyseerr-config:/src:ro \
 make deploy-media && make ansible-sync
 ```
 
-The `jellyseerr` network alias and hostname are kept, so old links and the tunnel's `http://jellyseerr:5055` keep working. Background: [ADR 0002](decisions/0002-seerr-migration.md).
+The `jellyseerr` network alias and hostname are kept, so old links keep working. Background: [ADR 0002](decisions/0002-seerr-migration.md).
 
 ## CI
 

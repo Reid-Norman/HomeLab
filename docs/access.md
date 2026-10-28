@@ -6,7 +6,7 @@
 |---------|----------|---------|----------|
 | Homepage (start page) | `home.domain` | Portainer | `portainer.domain` |
 | Jellyfin | `jellyfin.domain` | Uptime Kuma | `uptime-kuma.domain` |
-| Seerr | `seerr.domain` (also `jellyseerr.domain`) | Dozzle | `dozzle.domain` |
+| Seerr | `seerr.domain` (also `jellyseerr.domain`, `requests.domain`) | Dozzle | `dozzle.domain` |
 | Sonarr | `sonarr.domain` | Semaphore | `semaphore.domain` |
 | Radarr | `radarr.domain` | AdGuard Home | `adguard.domain` |
 | Prowlarr | `prowlarr.domain` | Traefik dashboard | `traefik.domain` |
@@ -14,7 +14,7 @@
 | Shelfmark | `shelfmark.domain` | Audiobookshelf | `audiobookshelf.domain` |
 | Recommendarr | `recommendarr.domain` | | |
 
-Public through Cloudflare Tunnel: `jellyfin.domain`, `requests.domain` (Seerr, behind Cloudflare Access) and `audiobooks.domain`.
+Public through Cloudflare Tunnel: `jellyfin.domain` and `audiobooks.domain`. Seerr isn't public: family request from inside the Moonfin app ([Family access](#family-access)).
 
 ## Home network DNS
 
@@ -32,7 +32,8 @@ AdGuard Home has the same `*.domain` rewrite for devices that use it for ad bloc
 Admin pages sit behind one Authelia login with two-factor: Sonarr, Radarr, Prowlarr, qBittorrent, Shelfmark, Recommendarr, Homepage, Portainer, Uptime Kuma, Dozzle, Semaphore, AdGuard and the Traefik dashboard. One login covers all of them, because the session cookie is on the apex domain.
 
 - **Second logins:** Sonarr, Radarr, Prowlarr and qBittorrent skip their own login behind Authelia. Portainer, Semaphore, AdGuard and Uptime Kuma keep theirs; Portainer controls the whole Docker host, so it deliberately needs both.
-- **Not behind Authelia:** Jellyfin, Seerr and Audiobookshelf. Their TV and phone apps call the API directly and can't get past a login page, so they keep their own logins.
+- **Not behind Authelia:** Jellyfin and Audiobookshelf, whose TV and phone apps call the API directly and can't get past a login page, so they keep their own logins. Seerr isn't either: it's home network and Tailscale only, and you sign in with your Jellyfin account.
+- **Admins only:** every Authelia user is in the `admins` group. Family members get Jellyfin accounts, not Authelia ones, so they can't open the start page or any admin page.
 - **No bypass through ports:** admin ports are published on `127.0.0.1` only. The Mac and Ansible use `http://localhost:<port>`; other devices can't skip Authelia that way.
 - **Fails closed:** if Authelia is down, admin routes return 404 instead of opening.
 - **Brute-force protection:** 3 failed logins within 2 minutes lock the user for 10 minutes.
@@ -72,6 +73,35 @@ On each phone or laptop, install Tailscale and sign in with the same account. On
 - Use only the Homebrew install on the server. The Tailscale app runs only while someone is logged in, and running both makes them fight over the same socket.
 - `--accept-dns=false` keeps the server's DNS unchanged; certificate renewals depend on it.
 - `make ansible-sync` reports whether Tailscale is logged in, the route is approved, and key expiry is off.
+
+## Family access
+
+Family members watch and request in one app, [Moonfin](https://moonfin.io), with one login: their Jellyfin account. Seerr stays off the internet; the Moonbase plugin in Jellyfin relays requests to it inside the Docker network. The reasoning is in [ADR 0012](decisions/0012-family-requests-through-moonfin.md).
+
+**Add a person:**
+
+1. In Jellyfin, *Dashboard → Users → +*: a username and password, the libraries they should see, and *Allow media deletion* off. Never make them an administrator.
+2. Install **Moonfin** on their devices: Google Play (phones, Android TV, Google TV), the Amazon Appstore (Fire TV), the App Store (iPhone, Apple TV) or the Roku Channel Store.
+3. In Moonfin, add the server `https://jellyfin.example.com` and sign in with their Jellyfin account.
+4. In Moonfin, *Settings → Integrations → Moonbase Plugin* → *Enable Plugin*, then *Settings → Integrations → Seerr* → sign in with **Jellyfin**. Moonbase keeps that Seerr session on the server, so this is once per person.
+
+Their first sign-in creates their Seerr account. They can then search, browse the Seerr rows and request from the app.
+
+**What new users get** (set by the `seerr` role from `vars.yml`):
+
+| Setting | Default | Var |
+|---------|---------|-----|
+| Permissions | Request movies and TV, auto-approved (not 4K, nothing admin) | `seerr_default_permissions` |
+| Movie limit | 10 every 7 days | `seerr_quota_movies` |
+| TV limit | 10 seasons every 7 days | `seerr_quota_tv` |
+
+These are defaults for **new** Seerr users. To change someone who already exists, edit them in Seerr (*Users*).
+
+**Requirements:**
+
+- **Jellyfin API key:** the `jellyfin` role installs and configures Moonbase only when `vault_jellyfin_api_key` is set (see [Start page](#start-page-homepage)).
+- **Moonbase's Seerr settings** come from `jellyfin_moonbase_config`: Seerr at `http://seerr:5055`, and Seerr's webhook calls Jellyfin at `http://jellyfin:8096`. Neither needs a public URL.
+- **For you:** Seerr's website still works at `seerr.domain` at home and over Tailscale, and Moonfin works for you too.
 
 ## Cloudflare settings
 

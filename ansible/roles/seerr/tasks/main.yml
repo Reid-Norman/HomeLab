@@ -115,3 +115,66 @@
           isDefault: true
         status_code: [200, 201]
       when: seerr_sonarr.json | length == 0
+
+    # New users are family members signing in with their Jellyfin account (from the
+    # Moonfin app). Request + auto-approve only, with per-user quotas. The POST is a
+    # merge, so only these keys change
+    - name: Get Seerr main settings
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/main"
+        method: GET
+        headers:
+          Cookie: "{{ seerr_cookie }}"
+        status_code: 200
+      register: seerr_main
+      no_log: true
+
+    # One expression, so the numbers stay ints (nested "{{ }}" values become strings
+    # and would never compare equal)
+    - name: Build wanted Seerr main settings
+      ansible.builtin.set_fact:
+        seerr_main_wanted: >-
+          {{ {'mediaServerLogin': true,
+              'newPlexLogin': true,
+              'defaultPermissions': seerr_default_permissions | int,
+              'defaultQuotas': {
+                'movie': {'quotaLimit': seerr_quota_movies.limit | int, 'quotaDays': seerr_quota_movies.days | int},
+                'tv': {'quotaLimit': seerr_quota_tv.limit | int, 'quotaDays': seerr_quota_tv.days | int}}} }}
+
+    - name: Set Seerr defaults for new users
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/main"
+        method: POST
+        headers:
+          Cookie: "{{ seerr_cookie }}"
+        body_format: json
+        body: "{{ seerr_main_wanted }}"
+        status_code: 200
+      when: seerr_main.json | combine(seerr_main_wanted, recursive=true) != seerr_main.json
+      changed_when: true
+      no_log: true
+
+    - name: Get Seerr Jellyfin settings
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/jellyfin"
+        method: GET
+        headers:
+          Cookie: "{{ seerr_cookie }}"
+        status_code: 200
+      register: seerr_jellyfin
+      no_log: true
+
+    # "Play on Jellyfin" links point at the public Jellyfin, not the container
+    - name: Set Seerr's external Jellyfin URL
+      ansible.builtin.uri:
+        url: "http://localhost:5055/api/v1/settings/jellyfin"
+        method: POST
+        headers:
+          Cookie: "{{ seerr_cookie }}"
+        body_format: json
+        body:
+          externalHostname: "https://jellyfin.{{ vault_domain }}"
+        status_code: 200
+      when: seerr_jellyfin.json.externalHostname | default('') != 'https://jellyfin.' + vault_domain
+      changed_when: true
+      no_log: true
