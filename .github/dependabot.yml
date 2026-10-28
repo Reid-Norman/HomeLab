@@ -1,0 +1,12 @@
+# Keeps the actions in .github/workflows current (e.g. the CodeQL v3 and
+# Node 20 deprecations). One grouped PR a month. The Semgrep and Trivy image
+# tags inside security.yml aren't covered: bump those by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
