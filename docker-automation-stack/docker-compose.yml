@@ -4,6 +4,8 @@ services:
     image: postgres:16-alpine
     container_name: semaphore-db
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - .env
     environment:
@@ -19,6 +21,8 @@ services:
     image: semaphoreui/semaphore:latest
     container_name: semaphore
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_started

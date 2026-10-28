@@ -1,0 +1,78 @@
+name: Security
+
+# compose-hardening: blocks a push/PR that adds a privileged container, a Docker
+# socket mount, or a service without no-new-privileges (rules in .semgrep/).
+# image-scan: weekly, report-only scan of every image the stacks run, for
+# fixable HIGH/CRITICAL CVEs. Results go to Security → Code scanning.
+# Background: docs/decisions/0011-security-scanning.md
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 9 * * 1"  # Mondays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-hardening:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep:1.95.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Semgrep
+        run: semgrep scan --config .semgrep/compose.yml --error --metrics=off docker-*-stack/
+
+  images:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List images
+        id: list
+        run: |
+          list=$(grep -h '^ *image:' docker-*-stack/docker-compose.yml | awk '{print $2}' | sort -u | jq -R . | jq -sc .)
+          echo "$list"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
+  image-scan:
+    needs: images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload SARIF
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        image: ${{ fromJSON(needs.images.outputs.list) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Report-only (--exit-code 0): these are third-party images, so the fix is
+      # bumping a pinned tag or replacing an unmaintained image, not a code change.
+      # linux/arm64 because the server is an Apple Silicon Mac.
+      - name: Trivy
+        run: |
+          docker run --rm -v "$PWD:/out" aquasec/trivy:0.67.2 image \
+            --platform linux/arm64 --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 0 --format sarif --output /out/trivy.sarif "${{ matrix.image }}"
+
+      - name: Category
+        id: category
+        run: echo "name=trivy-$(echo '${{ matrix.image }}' | tr '/:' '--')" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: ${{ steps.category.outputs.name }}

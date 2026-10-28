@@ -4,6 +4,8 @@ services:
     image: authelia/authelia:4.39
     container_name: authelia
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - .env
     volumes:

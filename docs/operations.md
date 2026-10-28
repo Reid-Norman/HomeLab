@@ -49,12 +49,16 @@ make ansible-sync                  # re-apply API configuration
 
 ### Add a service
 
-1. Add it to the right stack's `docker-compose.yml`. Pick the stack by [dependency direction](architecture.md#stack-layout) and where its secrets would end up.
+1. Add it to the right stack's `docker-compose.yml`. Pick the stack by [dependency direction](architecture.md#stack-layout) and where its secrets would end up. Give it `security_opt: [no-new-privileges:true]`; CI fails without it.
 2. Add Traefik labels: `traefik.enable=true`, a `Host()` rule, the `websecure` entrypoint and the port. No `certresolver` label: the wildcard covers it.
 3. If it's an admin page, add `traefik.http.routers.<name>.middlewares=${ADMIN_MIDDLEWARES}` and publish its port on `127.0.0.1` only.
 4. Put secrets in the vault and the stack's `.env.j2`.
 5. Add an Ansible role if it has an API to configure, and add it to `site.yml`.
 6. Add an Uptime Kuma monitor in `vars.yml` and a tile in `docker-management-stack/homepage/services.yaml`.
+
+### Act on an image scan
+
+The weekly Trivy run lists fixable CVEs per image under **Security → Code scanning**. For each image, either bump the pinned tag (Authelia, Postgres, Uptime Kuma, Homepage), replace an image that stays behind, or dismiss the alert in GitHub with the reason. `:latest` images are updated by Watchtower, so their alerts clear on their own if the upstream image is maintained.
 
 ### Recover from a lost volume
 
@@ -97,7 +101,7 @@ The `jellyseerr` network alias and hostname are kept, so old links keep working.
 
 ## CI
 
-GitHub Actions runs on every push and pull request. Deployment stays manual, because it needs the local Docker host.
+GitHub Actions runs on every push and pull request. Deployment stays manual, because it needs the local Docker host. Why the security checks are set up this way: [ADR 0011](decisions/0011-security-scanning.md).
 
 | Check | Tool |
 |-------|------|
@@ -106,4 +110,6 @@ GitHub Actions runs on every push and pull request. Deployment stays manual, bec
 | Shell scripts | shellcheck |
 | Playbook syntax | `ansible-playbook --syntax-check` (needs the `VAULT_PASSWORD` secret; skipped without it) |
 | Secret leaks | gitleaks, over the full commit range |
+| Container hardening in compose | Semgrep with the rules in `.semgrep/compose.yml`: no privileged containers, no unexplained Docker socket mounts, `no-new-privileges` on every service. Blocks the push or PR |
+| Image vulnerabilities | Trivy, weekly and on demand, over every image the stacks use: fixable HIGH and CRITICAL CVEs, reported under **Security → Code scanning**. Report-only |
 | These docs | `mkdocs build --strict`, then deploy to GitHub Pages from `main` |
