@@ -59,3 +59,40 @@ rules:
           services:
             ...
       - pattern-regex: (seccomp|apparmor)[:=]unconfined|label[:=]disable
+
+  - id: host-namespace
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Sharing the host's network, PID, IPC, UTS or user namespace lets this
+      container see or act on host processes and interfaces, much like privileged.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern-either:
+          - pattern: "network_mode: host"
+          - pattern: "pid: host"
+          - pattern: "ipc: host"
+          - pattern: "uts: host"
+          - pattern: "userns_mode: host"
+
+  - id: dangerous-capability
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      $CAP is close to full root on the host (mounts, kernel modules,
+      reading other processes or any file). Find a narrower capability.
+    patterns:
+      - pattern-inside: |
+          services:
+            ...
+      - pattern: |
+          cap_add:
+            - ...
+            - $CAP
+            - ...
+      - metavariable-regex:
+          metavariable: $CAP
+          regex: ^["']?(CAP_)?(ALL|SYS_ADMIN|SYS_MODULE|SYS_PTRACE|SYS_RAWIO|DAC_READ_SEARCH|BPF)["']?$
+      - focus-metavariable: $CAP

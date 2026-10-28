@@ -60,6 +60,18 @@ make ansible-sync                  # re-apply API configuration
 
 The weekly Trivy run lists fixable CVEs per image under **Security → Code scanning**. For each image, either bump the pinned tag (Authelia, Postgres, Uptime Kuma, Homepage), replace an image that stays behind, or dismiss the alert in GitHub with the reason. `:latest` images are updated by Watchtower, so their alerts clear on their own if the upstream image is maintained.
 
+When an image is removed from the stacks, its alerts stay open, because nothing rescans it. Delete its results (the category is `trivy-` plus the image name with `/` and `:` turned into `-`):
+
+```bash
+cat=trivy-containrrr-watchtower-latest
+id=$(gh api "repos/{owner}/{repo}/code-scanning/analyses?per_page=100" \
+  --jq "[.[] | select(.category==\"$cat\")][0].id")
+url="repos/{owner}/{repo}/code-scanning/analyses/$id?confirm_delete"
+while [ -n "$url" ] && [ "$url" != null ]; do
+  url=$(gh api -X DELETE "$url" --jq '.confirm_delete_url' | sed 's#https://api.github.com/##')
+done
+```
+
 ### Recover from a lost volume
 
 ```bash
@@ -110,6 +122,8 @@ GitHub Actions runs on every push and pull request. Deployment stays manual, bec
 | Shell scripts | shellcheck |
 | Playbook syntax | `ansible-playbook --syntax-check` (needs the `VAULT_PASSWORD` secret; skipped without it) |
 | Secret leaks | gitleaks, over the full commit range |
-| Container hardening in compose | Semgrep with the rules in `.semgrep/compose.yml`: no privileged containers, no unexplained Docker socket mounts, `no-new-privileges` on every service. Blocks the push or PR |
+| Container hardening in compose | Semgrep with the rules in `.semgrep/compose.yml`: no privileged containers, no host network/PID/IPC namespaces, no near-root capabilities (`SYS_ADMIN`, `ALL`, ...), no unexplained Docker socket mounts, `no-new-privileges` on every service. Blocks the push or PR |
 | Image vulnerabilities | Trivy, weekly and on demand, over every image the stacks use: fixable HIGH and CRITICAL CVEs, reported under **Security → Code scanning**. Report-only |
 | These docs | `mkdocs build --strict`, then deploy to GitHub Pages from `main` |
+
+Dependabot opens one grouped PR a month to update the GitHub Actions versions. The Semgrep and Trivy image tags in `security.yml` are pinned by hand: bump them every few months, to a release at least two weeks old.
