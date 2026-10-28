@@ -22,7 +22,7 @@ jobs:
     container: semgrep/semgrep:1.180.0
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Semgrep
         run: semgrep scan --config .semgrep/compose.yml --error --metrics=off docker-*-stack/
@@ -34,7 +34,7 @@ jobs:
       list: ${{ steps.list.outputs.list }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: List images
         id: list
@@ -56,7 +56,7 @@ jobs:
         image: ${{ fromJSON(needs.images.outputs.list) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Report-only (--exit-code 0): these are third-party images, so the fix is
       # bumping a pinned tag or replacing an unmaintained image, not a code change.
