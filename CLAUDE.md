@@ -89,7 +89,8 @@ Traefik  (reverse proxy + TLS termination)
 
 ## When Modifying Docker Compose Files
 
-- All services use `restart: unless-stopped`
+- All services use `restart: unless-stopped` and `security_opt: [no-new-privileges:true]` (enforced by Semgrep in CI, rules in `.semgrep/compose.yml`)
+- A Docker socket mount needs a `# nosemgrep: docker-socket-mount — <reason>` comment on the same line
 - Services load config from `env_file: [.env]`. Exception: Homepage loads only `homepage.env` (its widget API keys/logins), so the rest of the management stack never gets them
 - Use named volumes for persistent data (e.g., `sonarr-config:/config`)
 - LinuxServer.io images expect `PUID`, `PGID`, and `TZ` environment variables
