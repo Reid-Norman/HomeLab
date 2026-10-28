@@ -183,8 +183,10 @@ services:
   # Seerr — successor to Jellyseerr/Overseerr (they merged into Seerr).
   # Runs as UID 1000 (not root), so PUID/PGID are not used and the config
   # volume must be owned by 1000:1000. Seerr ships no init process; init: true
-  # is required. The "jellyseerr" network alias and Traefik host keep old
-  # links and the Cloudflare tunnel hostname working.
+  # is required. The "jellyseerr" network alias and Traefik hosts keep old
+  # links working. Not public: family request through the Moonfin app, which
+  # relays to Seerr via Jellyfin's Moonbase plugin. "requests" is the old
+  # tunnel hostname, now home network/Tailscale only.
   seerr:
     profiles: ["media"]
     image: ghcr.io/seerr-team/seerr:latest
@@ -203,7 +205,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.seerr.rule=Host(`seerr.${DOMAIN}`) || Host(`jellyseerr.${DOMAIN}`)"
+      - "traefik.http.routers.seerr.rule=Host(`seerr.${DOMAIN}`) || Host(`jellyseerr.${DOMAIN}`) || Host(`requests.${DOMAIN}`)"
       - "traefik.http.routers.seerr.entrypoints=websecure"
       - "traefik.http.services.seerr.loadbalancer.server.port=5055"
 

@@ -111,3 +111,46 @@
       delay: 10
       until: jellyfin_restart_health.status == 200
       when: jellyfin_needs_restart
+
+    # Moonbase (the Moonfin app's server plugin) relays Seerr requests through
+    # Jellyfin, so Seerr stays off the internet. Its config endpoint replaces the
+    # whole object, so merge into the current one
+    - name: Get plugins after install
+      ansible.builtin.uri:
+        url: "http://localhost:8096/Plugins"
+        method: GET
+        headers:
+          Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+        status_code: 200
+      register: jellyfin_plugins_now
+
+    - name: Find the Moonbase plugin
+      ansible.builtin.set_fact:
+        jellyfin_moonbase: >-
+          {{ jellyfin_plugins_now.json | selectattr('Name', 'equalto', 'Moonbase') | first | default({}) }}
+
+    - name: Configure Moonbase
+      when: jellyfin_moonbase.Id is defined
+      block:
+        - name: Get Moonbase config
+          ansible.builtin.uri:
+            url: "http://localhost:8096/Plugins/{{ jellyfin_moonbase.Id }}/Configuration"
+            method: GET
+            headers:
+              Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+            status_code: 200
+          register: jellyfin_moonbase_current
+          no_log: true  # holds the Seerr webhook secret
+
+        - name: Point Moonbase at Seerr
+          ansible.builtin.uri:
+            url: "http://localhost:8096/Plugins/{{ jellyfin_moonbase.Id }}/Configuration"
+            method: POST
+            headers:
+              Authorization: 'MediaBrowser Token="{{ vault_jellyfin_api_key }}"'
+            body_format: json
+            body: "{{ jellyfin_moonbase_current.json | combine(jellyfin_moonbase_config) }}"
+            status_code: [200, 204]
+          when: jellyfin_moonbase_current.json | combine(jellyfin_moonbase_config) != jellyfin_moonbase_current.json
+          changed_when: true
+          no_log: true

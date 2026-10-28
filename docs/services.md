@@ -37,7 +37,7 @@
 | Sonarr | `linuxserver/sonarr` | `127.0.0.1:8989` | media | TV shows |
 | Radarr | `linuxserver/radarr` | `127.0.0.1:7878` | media | Movies |
 | Jellyfin | `linuxserver/jellyfin` | 8096, 7359, 8920 | media | Media server (public via tunnel) |
-| Seerr | `ghcr.io/seerr-team/seerr` | `127.0.0.1:5055` | media | Requests (public via tunnel, behind Cloudflare Access) |
+| Seerr | `ghcr.io/seerr-team/seerr` | `127.0.0.1:5055` | media | Requests: home network and Tailscale only; family use it through Jellyfin's Moonbase plugin |
 | Shelfmark | `ghcr.io/calibrain/shelfmark` | `127.0.0.1:8084` | audiobooks | Audiobook search and download |
 | Audiobookshelf | `ghcr.io/advplyr/audiobookshelf` | 13378 | audiobooks | Audiobook server (public via tunnel) |
 | Recommendarr | `tannermiddleton/recommendarr` | `127.0.0.1:3000` | recommendarr | AI recommendations from your library |

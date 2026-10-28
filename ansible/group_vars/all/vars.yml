@@ -84,27 +84,42 @@ jellyfin_plugin_repos:
   - Name: "Intro Skipper"
     Url: "https://raw.githubusercontent.com/intro-skipper/intro-skipper/master/manifest.json"
     Enabled: true
+  - Name: "Moonfin"
+    Url: "https://raw.githubusercontent.com/Moonfin-Client/Plugin/refs/heads/master/manifest.json"
+    Enabled: true
 
 # Jellyfin plugins to install
 jellyfin_plugins:
   - name: "Intro Skipper"
   - name: "Fanart"
+  - name: "Moonbase"  # Moonfin app's server plugin: Seerr requests inside the app
+
+# Moonbase settings merged into its plugin config. Seerr is reached inside
+# homelab-network, so it never needs a public URL; Seerr's webhook calls Jellyfin
+# the same way
+jellyfin_moonbase_config:
+  SeerrEnabled: true
+  SeerrUrl: "http://seerr:5055"
+  PublicServerUrl: "http://jellyfin:8096"
+
+# Seerr defaults for new users (family members signing in with their Jellyfin
+# account). Permission bits: REQUEST=32, AUTO_APPROVE=128 (movies and TV, not 4K).
+# Never include ADMIN=2 or the MANAGE_* bits. Existing users keep their permissions
+seerr_default_permissions: 160
+# Per-user request limits over a rolling window; TV counts seasons
+seerr_quota_movies: {limit: 10, days: 7}
+seerr_quota_tv: {limit: 10, days: 7}
 
 # Cloudflare Tunnel public hostnames (managed in the Cloudflare dashboard).
 # Everything else is LAN/Tailscale only, via AdGuard + Traefik
 cloudflare_tunnel_subdomains:
   - jellyfin
-  - requests  # Seerr, behind Cloudflare Access
   - audiobooks
 
 # Public DNS-only A records pointing at the server's LAN IP ("*" = *.domain).
 # Lets LAN devices resolve home-network hostnames without using AdGuard
 cloudflare_lan_dns_records:
   - "*"
-
-# Cloudflare Access allowed emails
-cloudflare_access_allowed_emails:
-  - "{{ vault_le_email }}"
 
 # Uptime Kuma Telegram notifications
 uptime_kuma_telegram_enabled: true

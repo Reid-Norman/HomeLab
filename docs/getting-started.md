@@ -48,9 +48,9 @@ After step 8 everything is wired: Prowlarr syncs indexers to Sonarr and Radarr, 
 These need a person and can't be automated:
 
 1. **Authelia two-factor:** open any admin page, sign in, register an authenticator app. The confirmation link is in `docker exec authelia cat /data/notification.txt`.
-2. **Jellyfin setup wizard** at `http://localhost:8096`: admin user and libraries.
+2. **Jellyfin setup wizard** at `http://localhost:8096`: admin user and libraries. Then create an API key (*Dashboard → API Keys*) and save it as `vault_jellyfin_api_key` with `make vault-edit`; the `jellyfin` role needs it for plugins, including Moonbase.
 3. **Prowlarr indexers** at `http://localhost:9696`: they need accounts and captchas. `make ansible-sync` then syncs them to Sonarr and Radarr.
-4. **Seerr setup wizard** at `http://localhost:5055` (fresh installs): sign in with your Jellyfin admin, then `make ansible-sync` connects Radarr and Sonarr.
+4. **Seerr setup wizard** at `http://localhost:5055` (fresh installs): sign in with your Jellyfin admin, then `make ansible-sync` connects Radarr and Sonarr and sets the defaults for family accounts. To add family members, see [Family access](access.md#family-access).
 5. **Shelfmark** (audiobooks profile): Prowlarr at `http://vpn:9696`, qBittorrent at `http://vpn:5080` with category `audiobooks`.
 6. **Audiobookshelf** (audiobooks profile): add `/media/audiobooks` as a library.
 7. **Recommendarr** (recommendarr profile): add your AI provider.
@@ -63,7 +63,7 @@ These need a person and can't be automated:
 | `media` | VPN, qBittorrent, Prowlarr, FlareSolverr, Radarr, Sonarr, Jellyfin, Seerr | Movies and TV |
 | `audiobooks` | VPN, qBittorrent, Prowlarr, FlareSolverr, Shelfmark, Audiobookshelf | Audiobooks |
 | `recommendarr` | Recommendarr | Optional AI recommendations |
-| `tunnel` (networking) | cloudflared | Public access to Jellyfin, Seerr, Audiobookshelf |
+| `tunnel` (networking) | cloudflared | Public access to Jellyfin and Audiobookshelf |
 
 ```bash
 make deploy-media                            # movies and TV

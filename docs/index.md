@@ -38,7 +38,7 @@ flowchart LR
     internet((Internet)) -->|Cloudflare Tunnel| cfd[cloudflared]
     phone((Phone away<br/>from home)) -->|Tailscale| traefik
     lan((Home network)) --> traefik[Traefik<br/>TLS + headers]
-    cfd --> public[Jellyfin · Seerr · Audiobookshelf]
+    cfd --> public[Jellyfin · Audiobookshelf]
     traefik --> public
     traefik --> authelia{Authelia<br/>2FA}
     authelia --> admin[Admin pages<br/>Sonarr · Radarr · qBittorrent · Portainer · …]
