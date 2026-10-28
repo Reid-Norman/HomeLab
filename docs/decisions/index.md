@@ -14,3 +14,4 @@ Short records of the decisions that aren't obvious from the code: the context, w
 | [0008](0008-authelia-single-sign-on.md) | Authelia for single sign-on on admin pages | 2026-10-25 |
 | [0009](0009-homepage-without-docker-socket.md) | Homepage without the Docker socket, with its own env file | 2026-10-25 |
 | [0010](0010-tailscale-remote-access.md) | Tailscale subnet route for remote access | 2026-10-25 |
+| [0011](0011-security-scanning.md) | Scan compose hardening on every push, images weekly | 2026-10-27 |

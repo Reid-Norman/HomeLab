@@ -4,6 +4,8 @@ services:
     image: traefik:latest
     container_name: traefik
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - .env
     ports:
@@ -14,7 +16,7 @@ services:
       - CF_ZONE_API_TOKEN=${CF_DNS_API_TOKEN}
       - CF_API_EMAIL=${CF_API_EMAIL}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock  # nosemgrep: docker-socket-mount — reads container labels to build routes (ADR 0001)
       - traefik-certs:/certs
     command:
       - "--api.dashboard=true"
@@ -63,6 +65,8 @@ services:
     image: adguard/adguardhome:latest
     container_name: adguardhome
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - adguard-data:/opt/adguardhome/work
       - adguard-conf:/opt/adguardhome/conf
@@ -88,6 +92,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - homelab-network
